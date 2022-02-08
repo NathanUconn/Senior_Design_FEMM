@@ -8,6 +8,8 @@ import json
 import csv
 import time as time_module
 
+# THIS IS A TEST COMMENT FOR GIT PURPOSES
+
 start_time = time_module.time()
 
 voltage_test = False
