@@ -14,9 +14,9 @@ start_time = time_module.time()
 
 voltage_test = False
 num_turns_test = False
-starting_pos_test = False
-coil_2_threshold_test = False
-coil_3_threshold_test = False
+starting_pos_test = True
+coil_2_threshold_test = True
+coil_3_threshold_test = True
 
 # Circuit Parameters #
 if voltage_test:
@@ -25,9 +25,9 @@ else:
     voltage_arr = [160]
 
 if num_turns_test:
-    num_turns_arr = [100, 200, 240, 300]
+    num_turns_arr = [100, 200, 300, 315]
 else:
-    num_turns_arr = [240]
+    num_turns_arr = [315]
 
 # Coil Timing Arrays #
 if starting_pos_test:
@@ -36,12 +36,12 @@ else:
     starting_pos_arr = [1.5]
 
 if coil_2_threshold_test:
-    coil_2_thresh_arr = np.ndarray.tolist(np.linspace(0.6, 1.3, 11))
+    coil_2_thresh_arr = np.ndarray.tolist(np.linspace(0.6, 1.3, 5))
 else:
     coil_2_thresh_arr = [0.9]
 
 if coil_3_threshold_test:
-    coil_3_thresh_arr = np.ndarray.tolist(np.linspace(0.6, 1.3, 11))
+    coil_3_thresh_arr = np.ndarray.tolist(np.linspace(0.6, 1.3, 5))
 else:
     coil_3_thresh_arr = [1.2]
 
@@ -129,7 +129,7 @@ for volt in voltage_arr:
                     proj_center_start_y = starting_pos
                     proj_center_end_y = 12.5
                     v = 0  # initial velocity in in/sec
-                    delta_t = 0.1  # time step in seconds
+                    delta_t = 0.01  # time step in seconds
 
                     max_time = 5
 
