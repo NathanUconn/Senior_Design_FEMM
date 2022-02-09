@@ -10,13 +10,15 @@ import time as time_module
 
 # THIS IS A TEST COMMENT FOR GIT PURPOSES
 
+# AND SO IS THIS
+
 start_time = time_module.time()
 
 voltage_test = False
 num_turns_test = False
-starting_pos_test = True
-coil_2_threshold_test = True
-coil_3_threshold_test = True
+starting_pos_test = False
+coil_2_threshold_test = False
+coil_3_threshold_test = False
 
 # Circuit Parameters #
 if voltage_test:
@@ -38,12 +40,24 @@ else:
 if coil_2_threshold_test:
     coil_2_thresh_arr = np.ndarray.tolist(np.linspace(0.6, 1.3, 5))
 else:
-    coil_2_thresh_arr = [0.9]
+    coil_2_thresh_arr = [1.125]
 
 if coil_3_threshold_test:
     coil_3_thresh_arr = np.ndarray.tolist(np.linspace(0.6, 1.3, 5))
 else:
-    coil_3_thresh_arr = [1.2]
+    coil_3_thresh_arr = [1.3]
+
+delta_t = 0.01  # time step in seconds
+
+max_time = 5
+
+# Firing Mode: Only one can be true #
+sequential_cutoff = False
+sequential_firing = True
+
+drag_coeff = 0.75
+fluid_density = 1.225  # kg/m^3
+proj_cross_sec = 4.90874  # area of tube opening
 
 
 header = ["Voltage", "Number of Turns", "Starting Position", "Coil 2 Distance Threshold", "Coil 3 Distance Threshold", "Number of Turns", "Max Velocity"]
@@ -75,7 +89,8 @@ for volt in voltage_arr:
                     femm.mi_saveas(temp_path)
                     femm.mi_seteditmode("group")
                     pos = []
-                    force = []
+                    coil_force = []
+                    drag_force = []
                     vel = []
 
                     path = "Test Data"
@@ -129,12 +144,6 @@ for volt in voltage_arr:
                     proj_center_start_y = starting_pos
                     proj_center_end_y = 12.5
                     v = 0  # initial velocity in in/sec
-                    delta_t = 0.01  # time step in seconds
-
-                    max_time = 5
-
-                    sequential_cutoff = False
-                    sequential_firing = True
 
                     proj_curr_y = proj_center_start_y
                     time = []
@@ -265,7 +274,8 @@ for volt in voltage_arr:
                         elif sequential_cutoff:
                             sequential_cutoff_check()
 
-                        voltage = voltage_0 * np.exp(-time_since_coil_activation/(r*c))
+                        # voltage = voltage_0 * np.exp(-time_since_coil_activation/(r*c))
+                        voltage = voltage_0
                         # print("Voltage:", voltage, "Volts")
                         current = round(voltage/r, decimals)
                         current_arr.append(current)
@@ -290,13 +300,18 @@ for volt in voltage_arr:
                         latest_time = round(latest_time, decimals)
                         time_since_coil_activation += delta_t
                         # print("FORCE:", force_y)
-                        force.append(force_y)
+                        coil_force.append(force_y)
+
                         acc = force_y/proj_mass  #
                         acc = 39.3701 * acc  # acceleration of the projectile in in/s^2
                         # print("Acceleration:", acc, "in/s^2")
                         delta_v = acc * delta_t
                         # print("Delta-v:", delta_v, "in/s")
                         vel.append(v)
+
+                        drag_force_y = 1/2*drag_coeff*fluid_density*((vel[-1]*0.0254)**2)*proj_cross_sec
+                        drag_force.append(drag_force_y)
+                        print("Drag Force", drag_force_y, "N")
 
                         proj_curr_y += v*delta_t + 0.5*acc*delta_t*delta_t  # based on kinematic equation deltaX = v_0*t+1/2*a*t^2
 
@@ -308,7 +323,7 @@ for volt in voltage_arr:
                     femm.mi_close()
                     femm.closefemm()
 
-                    force = np.array(force)
+                    coil_force = np.array(coil_force)
                     pos = np.array(pos)
 
                     for coil in coils:
@@ -345,25 +360,25 @@ for volt in voltage_arr:
 
                         # Setting limits for x and y axis
                         ax.set_xlim(0, time[-1])
-                        lower_bound = min(force)
+                        lower_bound = min(coil_force)
                         if lower_bound <= 0:
                             lower_bound = lower_bound * 1.1
                         else:
                             lower_bound = lower_bound / 1.1
-                        ax.set_ylim(lower_bound, max(force)*1.1)
+                        ax.set_ylim(lower_bound, max(coil_force)*1.1)
                         ax2.set_ylim(0, max(current_arr)*1.1)
 
                         # Since plotting a single graph
                         line, = ax.plot(0, 0, color="blue")
                         curr_line, = ax2.plot(0, 0, color="red")
 
-                        fig_path = test_folder_path + "/force.png"
+                        fig_path = test_folder_path + "/coil_force.png"
 
                         def animation_function(i):
                             i_orig = i
                             i = int(i * len(time)/anim_frames)
                             time_plt.append(time[i])
-                            force_plt.append(force[i])
+                            force_plt.append(coil_force[i])
                             curr_plt.append(current_arr[i])
 
                             line.set_xdata(time_plt)
@@ -573,14 +588,21 @@ for volt in voltage_arr:
                         plt.title("Visualization of Slug Movement")
                         plt.xlabel("y-position(in)")
                         plt.ylabel("x-position(in)")
-                        anim.save("coil.gif", writer='pillow')
+
+                        total_time = max(time)
+                        frames = len(time)-1
+                        frames_per_sec = frames/total_time
+                        print("Total time:", total_time)
+                        print("Frames:", frames)
+                        print("Requested Frames per Second:", frames_per_sec)
+                        anim.save("coil.gif", writer='pillow', fps=frames_per_sec)
                         plt.show()
 
 
                     animate_force_plot()
                     animate_pos_plot()
                     animate_vel_plot()
-                    # animate_coil_plot()
+                    animate_coil_plot()
                     output_arr_local = [volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, num_turns, max(vel)]
                     output_arr_master.append(output_arr_local)
 
