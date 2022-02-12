@@ -29,7 +29,7 @@ else:
 if num_turns_test:
     num_turns_arr = [100, 200, 300, 315]
 else:
-    num_turns_arr = [315]
+    num_turns_arr = [400]
 
 # Coil Timing Arrays #
 if starting_pos_test:
@@ -274,8 +274,7 @@ for volt in voltage_arr:
                         elif sequential_cutoff:
                             sequential_cutoff_check()
 
-                        # voltage = voltage_0 * np.exp(-time_since_coil_activation/(r*c))
-                        voltage = voltage_0
+                        voltage = voltage_0 * np.exp(-time_since_coil_activation/(r*c))
                         # print("Voltage:", voltage, "Volts")
                         current = round(voltage/r, decimals)
                         current_arr.append(current)
@@ -395,7 +394,6 @@ for volt in voltage_arr:
                         plt.show(block=False)
                         plt.pause(7)
                         plt.close()
-
 
 
                     def animate_pos_plot():
