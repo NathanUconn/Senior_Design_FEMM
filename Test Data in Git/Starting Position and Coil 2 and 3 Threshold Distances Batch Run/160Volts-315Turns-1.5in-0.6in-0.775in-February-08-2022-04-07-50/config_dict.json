@@ -1,1 +1,0 @@
-{"Model": "ThreeFullCoilModel.fem", "Voltage": 160, "Num Turns": 315, "Starting Position": 1.5, "Coil 2 Threshold Distance": 0.6, "Coil 3 Threshold Distance": 0.775, "Slug Radius": 0.357, "Slug Length": 1.3, "Projectile Volume": 8.529660805766892e-06, "Slug Mass": 0.604411764696642, "Projectile Mass": 0.768041764696642, "Proj Center Start": 1.5, "Max Time": 5, "Delta-T": 0.01}

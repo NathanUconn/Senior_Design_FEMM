@@ -8,17 +8,13 @@ import json
 import csv
 import time as time_module
 
-# THIS IS A TEST COMMENT FOR GIT PURPOSES
-
-# AND SO IS THIS
-
 start_time = time_module.time()
 
 voltage_test = False
 num_turns_test = False
-starting_pos_test = False
-coil_2_threshold_test = False
-coil_3_threshold_test = False
+starting_pos_test = True
+coil_2_threshold_test = True
+coil_3_threshold_test = True
 
 # Circuit Parameters #
 if voltage_test:
@@ -29,7 +25,7 @@ else:
 if num_turns_test:
     num_turns_arr = [100, 200, 300, 315]
 else:
-    num_turns_arr = [100]
+    num_turns_arr = [500]
 
 # Coil Timing Arrays #
 if starting_pos_test:
@@ -47,7 +43,7 @@ if coil_3_threshold_test:
 else:
     coil_3_thresh_arr = [1.3]
 
-delta_t = 0.01  # time step in seconds
+delta_t = 0.0025  # time step in seconds
 
 max_time = 5
 
@@ -58,7 +54,7 @@ sequential_firing = True
 # Drag Parameters #
 
 drag_coeff = 0.75
-fluid_density = 1000  # kg/m^3
+fluid_density = 1.225  # kg/m^3
 proj_cross_sec = 4.90874 * (0.0254**2)  # area of tube opening in m^2
 
 
@@ -127,7 +123,7 @@ for volt in voltage_arr:
 
                     voltage_0 = volt  # initial voltage in volts
                     r = 4.7 + r_coil  # resistance of circuit in Ohms, from the resistor and the resistance of the coil
-                    # print("Total resistance:", r, "Ohms")
+                    print("Total resistance:", r, "Ohms")
                     I_0 = voltage_0/r  # initial current in Amps
                     c = 30/1000  # capacitance of each capacitor (default is 30000uF, 30mF, or 0.03F)
 
@@ -295,7 +291,9 @@ for volt in voltage_arr:
                         coil_force.append(force_y)
 
                         drag_force.append(drag_force_y)
-                        print("Drag Force", drag_force_y, "N")
+                        #print("Drag Force", drag_force_y, "N")
+                        drag_force.append(drag_force_y)
+                        #print("Coil Force", drag_force_y, "N")
 
                         force_y += -drag_force_y
 
@@ -305,8 +303,6 @@ for volt in voltage_arr:
                         delta_v = acc * delta_t
                         # print("Delta-v:", delta_v, "in/s")
                         vel.append(v)
-
-
 
                         proj_curr_y += v*delta_t + 0.5*acc*delta_t*delta_t  # based on kinematic equation deltaX = v_0*t+1/2*a*t^2
 
@@ -393,10 +389,9 @@ for volt in voltage_arr:
                         animation = FuncAnimation(figure, func = animation_function, interval=50, frames=anim_frames, blit=False, repeat=False)
                         ax.legend(loc="upper right")
                         ax2.legend(loc="upper left")
-                        plt.show()
-                        #plt.show(block=False)
-                        #plt.pause(7)
-                       # plt.close()
+                        plt.show(block=False)
+                        plt.pause(7)
+                        plt.close()
 
 
                     def animate_pos_plot():
@@ -603,7 +598,7 @@ for volt in voltage_arr:
                     animate_force_plot()
                     animate_pos_plot()
                     animate_vel_plot()
-                    animate_coil_plot()
+                    # animate_coil_plot()
                     output_arr_local = [volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, num_turns, max(vel)]
                     output_arr_master.append(output_arr_local)
 
