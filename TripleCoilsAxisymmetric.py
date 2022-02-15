@@ -12,9 +12,9 @@ start_time = time_module.time()
 
 voltage_test = False
 num_turns_test = False
-starting_pos_test = True
-coil_2_threshold_test = True
-coil_3_threshold_test = True
+starting_pos_test = False
+coil_2_threshold_test = False
+coil_3_threshold_test = False
 
 # Circuit Parameters #
 if voltage_test:
@@ -43,9 +43,9 @@ if coil_3_threshold_test:
 else:
     coil_3_thresh_arr = [1.3]
 
-delta_t = 0.0025  # time step in seconds
+delta_t = 0.001  # time step in seconds
 
-max_time = 5
+max_time = 0.5
 
 # Firing Mode: Only one can be true #
 sequential_cutoff = False
@@ -53,14 +53,20 @@ sequential_firing = True
 
 # Drag Parameters #
 
-drag_coeff = 0.75
-fluid_density = 1.225  # kg/m^3
+body_loaded = False   # Whether the cylindrical body is loaded into the sled or if the system is being dry fired (
+drag_coeff = 0.75  # drag coefficient of the body, GET FROM JASON
+fluid_density = 1.225  # kg/m^3, 1.225 kg/m^3 for air, 1000 kg/m^3
 proj_cross_sec = 4.90874 * (0.0254**2)  # area of tube opening in m^2
+
+# Friction Parameters #
+
+mu = 0.05  # coefficient of dynamic friction, 0.5 for sliding PLA on steel, very low for rolling
+mu_s = 1.0  # coefficient of static friction, 1.0 for sliding PLA on steel, N/A for rolling
 
 
 header = ["Voltage", "Number of Turns", "Starting Position", "Coil 2 Distance Threshold", "Coil 3 Distance Threshold", "Number of Turns", "Max Velocity"]
 
-output_arr_master = []
+output_arr_master = []  # array for storing the output data for the batchrun.csv file
 
 print("Voltage Array:", voltage_arr)
 print("Num Turns Array:", num_turns_arr)
@@ -68,6 +74,7 @@ print("Starting Position Array", starting_pos_arr)
 print("Coil 2 Threshold Array", coil_2_thresh_arr)
 print("Coil 3 Threshold Array", coil_3_thresh_arr)
 
+# Main testing loops #
 for volt in voltage_arr:
     for num_turns in num_turns_arr:
         for starting_pos in starting_pos_arr:
@@ -76,21 +83,25 @@ for volt in voltage_arr:
 
                     print("\nVoltage", volt, "Number of Turns", num_turns, "Coil 2 Threshold Dist:", coil_2_threshold_dist, "Coil 3 Threshold Dist:", coil_3_threshold_dist)
 
-                    current_directory = os.getcwd()
+                    current_directory = os.getcwd()  # get current working directory for file creation
 
                     femm.openfemm()
 
+                    # Model Information - could move outside #
                     model = "ThreeCoilModelAxi.fem"
                     model_path = "Models/" + model
                     femm.opendocument(model_path)
                     temp_path = "Models/" + "temp.fem"
                     femm.mi_saveas(temp_path)
                     femm.mi_seteditmode("group")
+
+                    # Array Creation for keeping track of data #
                     pos = []
                     coil_force = []
                     drag_force = []
                     vel = []
 
+                    # Create test data folder #
                     path = "Test Data"
                     final_directory = os.path.join(current_directory, path)
                     if not os.path.exists(final_directory):
@@ -101,7 +112,7 @@ for volt in voltage_arr:
                     if not os.path.exists(final_directory):
                         os.makedirs(final_directory)
 
-                    #  Projectile Parameters: ALL REFER TO THE SLUG EXCEPT FOR MASS WHERE IT IS A COMBINATION OF SLUG, SLED, AND BODY
+                    # Projectile Parameters: ALL REFER TO THE SLUG EXCEPT FOR MASS WHERE IT IS A COMBINATION OF SLUG, SLED, AND BODY
                     proj_r = 0.357  # radius of projectile in inches
                     proj_l = 1.3  # length of projectile in inches
                     proj_vol = np.pi * (proj_r**2) * proj_l  # volume of projectile in in^3
@@ -111,7 +122,12 @@ for volt in voltage_arr:
                     sled_mass = 58.21/1000
                     body_mass = 105.42/1000
 
-                    proj_mass = slug_mass + sled_mass + body_mass
+                    if body_loaded:  # if the cylindrical body is in the sled or just dry launching the sled
+                        proj_mass = slug_mass + sled_mass + body_mass
+                    else:
+                        proj_mass = slug_mass + sled_mass
+
+                    # Coil Parameters
                     coil_radius = 1.5  # coil radius in inches
                     coil_circumference = 2*np.pi*coil_radius
                     r_per_in = 6.385/(1000*12)  # the resistance per inch of cable
@@ -121,8 +137,10 @@ for volt in voltage_arr:
                     # print("Slug Mass", slug_mass, "kg")
                     # print("Projectile Mass:", proj_mass, "kg")
 
+                    # Electrical parameters - could move outside loop
                     voltage_0 = volt  # initial voltage in volts
-                    r = 4.7 + r_coil  # resistance of circuit in Ohms, from the resistor and the resistance of the coil
+                    r_resistor = 4.7  # resistance of discharge resistors
+                    r = r_resistor + r_coil  # resistance of circuit in Ohms, from the resistor and the resistance of the coil
                     print("Total resistance:", r, "Ohms")
                     I_0 = voltage_0/r  # initial current in Amps
                     c = 30/1000  # capacitance of each capacitor (default is 30000uF, 30mF, or 0.03F)
@@ -192,7 +210,7 @@ for volt in voltage_arr:
                     coil_initialization()
 
 
-                    def sequential_firing_check():
+                    def sequential_firing_check():  # function to turn on and cut off coils in sequence, only coil 1 starts on
                         global time_since_coil_activation
                         femm.mi_seteditmode('blocks')
                         current_coil = 0
@@ -234,7 +252,7 @@ for volt in voltage_arr:
                         femm.mi_clearselected()
 
 
-                    def sequential_cutoff_check():
+                    def sequential_cutoff_check():  # function to turn off coils in sequence, all start on
                         femm.mi_seteditmode('blocks')
                         for coil in coils:
                             if proj_curr_y >= coil.y_center and coil.on:
@@ -255,69 +273,81 @@ for volt in voltage_arr:
 
                     while proj_curr_y < proj_center_end_y and latest_time < max_time:
 
+                        # Check to see if any of the coils should be turned off/on
                         if sequential_firing:
                             sequential_firing_check()
 
                         elif sequential_cutoff:
                             sequential_cutoff_check()
 
-                        voltage = voltage_0 * np.exp(-time_since_coil_activation/(r*c))
+                        voltage = voltage_0 * np.exp(-time_since_coil_activation/(r*c))  # voltage due to discharging capacitors
                         # print("Voltage:", voltage, "Volts")
-                        current = round(voltage/r, decimals)
+                        current = round(voltage/r, decimals)  # current through coils
                         current_arr.append(current)
                         # print("Current:", current, "Amps")
-                        femm.mi_modifycircprop("New Circuit", 1, current)  # propnum = 1 is the total current
+                        femm.mi_modifycircprop("New Circuit", 1, current)  # propnum = 1 is the total current, change the current in FEMM
 
-                        femm.mi_seteditmode('group')
-                        femm.mi_analyze()
-                        femm.mi_loadsolution()
+                        femm.mi_seteditmode('group')  # select groups of points/lines
+                        femm.mi_analyze()  # run the FEMM simulation
+                        femm.mi_loadsolution()  # gather the FEMM simulation data
 
                         femm.mo_clearblock()
-                        femm.mo_groupselectblock(1)
-                        force_y = femm.mo_blockintegral(19)
+                        femm.mo_groupselectblock(1)  # select the slug (body 1)
+                        force_y = femm.mo_blockintegral(19)  # get the force acting on the slug
                         # print("FEMM Reported Force on Slug", force_y)
 
-                        pos.append(proj_curr_y)
-                        if len(time) != 0:
+                        pos.append(proj_curr_y)  # add the current position to the position array
+                        if len(time) != 0:  # if not at the start of the simulation, determine the drag force
                             time.append(latest_time)
                             drag_force_y = 1/2*drag_coeff*fluid_density*((vel[-1]*0.0254)**2)*proj_cross_sec
-                        else:
+                        else:  # drag force is 0 at time 0, breaks otherwise
                             time.append(0)
                             drag_force_y = 0
-                        latest_time += delta_t
-                        latest_time = round(latest_time, decimals)
-                        time_since_coil_activation += delta_t
+                        latest_time += delta_t  # increment the time step
+                        latest_time = round(latest_time, decimals)  # round time to speed up code
+                        time_since_coil_activation += delta_t  # modify the time since coil activation for keeping track of the current
                         # print("FORCE:", force_y)
-                        coil_force.append(force_y)
+                        coil_force.append(force_y)  # coil force array for plotting purposes
 
-                        drag_force.append(drag_force_y)
+                        drag_force.append(drag_force_y)  # drag force array for plotting purposes
                         #print("Drag Force", drag_force_y, "N")
-                        drag_force.append(drag_force_y)
-                        #print("Coil Force", drag_force_y, "N")
 
-                        force_y += -drag_force_y
+                        force_y += -drag_force_y  # CHANGE LATER SINCE THIS IS NOT THE CASE
 
-                        acc = force_y/proj_mass  #
+                        # Calculate Dynamic Frictional Forces #
+                        if round(v,2) == 0:
+                            friction_force = 0
+                        elif v > 0:
+                            friction_force = - mu*proj_mass*9.81
+                        else:  # v < 0
+                            friction_force = mu*proj_mass*9.81
+
+                        # print("Force y:", force_y, "Friction Force:", friction_force)
+                        force_y += friction_force  # positive and negative are taken care of in the frictional force
+                        # print("New force y:", force_y)
+
+                        # Determine acceleration, delta-v, and delta-pos #
+                        acc = force_y/proj_mass  # a=F/m
                         acc = 39.3701 * acc  # acceleration of the projectile in in/s^2
                         # print("Acceleration:", acc, "in/s^2")
-                        delta_v = acc * delta_t
+                        delta_v = acc * delta_t  # dv=a*dt
                         # print("Delta-v:", delta_v, "in/s")
-                        vel.append(v)
+                        vel.append(v) # velocity array for plotting purposes
 
-                        proj_curr_y += v*delta_t + 0.5*acc*delta_t*delta_t  # based on kinematic equation deltaX = v_0*t+1/2*a*t^2
+                        proj_curr_y += v*delta_t + 0.5*acc*delta_t*delta_t  # based on kinematic equation dX = v_0*t+1/2*a*t^2
 
-                        v += delta_v
+                        v += delta_v  #
                         femm.mo_clearblock()
                         femm.mi_selectgroup(1)
-                        femm.mi_movetranslate(0, v*delta_t + 0.5*acc*delta_t*delta_t)
+                        femm.mi_movetranslate(0, v*delta_t + 0.5*acc*delta_t*delta_t)  # move the object in FEMM
 
-                    femm.mi_close()
-                    femm.closefemm()
+                    femm.mi_close() # close postprocessor
+                    femm.closefemm()  # close entire FEMM window
 
-                    coil_force = np.array(coil_force)
+                    coil_force = np.array(coil_force)  # convert to numpy array for efficient data processing
                     pos = np.array(pos)
 
-                    for coil in coils:
+                    for coil in coils:  # get the pulse duration for each coil from its start and end time, report out
                         pulse_duration = round(coil.shut_down_time - coil.power_on_time, decimals)
                         print("Coil", coil.num, "pulse duration:", pulse_duration, "seconds from", coil.power_on_time, "to", coil.shut_down_time, "seconds")
 
@@ -326,15 +356,16 @@ for volt in voltage_arr:
                     coil_3_pulse_duration = round(coil_3.shut_down_time - coil_3.power_on_time, decimals)
                     output_dict = {"Max Velocity (in/s)": max(vel), "Coil 1 Pulse Duration": coil_1_pulse_duration, "Coil 1 Pulse Start": coil_1.power_on_time, "Coil 1 Pulse Stop": coil_1.shut_down_time, "Coil 2 Pulse Duration": coil_2_pulse_duration, "Coil 2 Pulse Start": coil_2.power_on_time, "Coil 2 Pulse Stop": coil_2.shut_down_time, "Coil 3 Pulse Duration": coil_3_pulse_duration, "Coil 3 Pulse Start": coil_3.power_on_time, "Coil 3 Pulse Stop": coil_3.shut_down_time}
 
+                    # JSON output #
                     json_output = json.dumps(output_dict)
                     output_path = test_folder_path + "/output.json"
                     f = open(output_path, "w")
                     f.write(json_output)
                     f.close()
 
-                    anim_frames = min(len(time)-1, 100)
+                    anim_frames = min(len(time)-1, 100)  # number of frames for the animations
 
-                    def animate_force_plot():
+                    def animate_force_plot():  # does what it says on the tin
                         time_plt = []
                         coil_force_plt = []
                         drag_force_plt = []
@@ -365,6 +396,18 @@ for volt in voltage_arr:
                         drag_force_line, = ax.plot(0, 0, color="purple", label="Drag Force")
                         curr_line, = ax2.plot(0, 0, color="red", label="Current")
 
+                        # Plot Vertical lines for
+                        for coil in coils:
+                            label_string = "Coil " + str(coil.num) + "On and Off"
+                            if coil.num == 1:
+                                line_color = "orange"
+                            elif coil.num == 2:
+                                line_color = "green"
+                            else:
+                                line_color = "black"
+                            ax.axvline(x=coil.shut_down_time, color=line_color, label=label_string)
+                            ax.axvline(x=coil.power_on_time, color=line_color)
+
                         fig_path = test_folder_path + "/coil_force.png"
 
                         def animation_function(i):
@@ -394,7 +437,7 @@ for volt in voltage_arr:
                         plt.close()
 
 
-                    def animate_pos_plot():
+                    def animate_pos_plot(): # does what it says on the tin
                         time_plt = []
                         pos_plt = []
 
@@ -439,7 +482,7 @@ for volt in voltage_arr:
                         plt.close()
 
 
-                    def animate_vel_plot():
+                    def animate_vel_plot(): # does what it says on the tin
                         time_plt = []
                         vel_plt = []
 
@@ -482,7 +525,7 @@ for volt in voltage_arr:
                         plt.close()
 
 
-                    def animate_coil_plot():
+                    def animate_coil_plot():  # custom animation of projectile being launched
                         fig, ax = plt.subplots()
                         fig.set_dpi(100)
                         fig.set_size_inches(7, 6.5)
@@ -602,6 +645,7 @@ for volt in voltage_arr:
                     output_arr_local = [volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, num_turns, max(vel)]
                     output_arr_master.append(output_arr_local)
 
+# Add all of the data to the CSV, should improve later to do it incrementally in the case of crashing/data loss
 with open('batchrun.csv', 'w', encoding='UTF8') as f:
     writer = csv.writer(f)
     writer.writerow(header)
