@@ -13,8 +13,8 @@ start_time = time_module.time()
 voltage_test = False
 num_turns_test = False
 starting_pos_test = False
-coil_2_threshold_test = False
-coil_3_threshold_test = False
+coil_2_threshold_test = True
+coil_3_threshold_test = True
 model_type = "actual"  # spaced, condensed, condensed with spacer
 
 # Circuit Parameters #
@@ -32,7 +32,7 @@ else:
 if starting_pos_test:  # location of the tip of the projectile relative to the start of coil 1
     starting_pos_arr = [-0.5, 0, 0.5]
 else:
-    starting_pos_arr = [-0]
+    starting_pos_arr = [0]
 
 if coil_2_threshold_test:
     coil_2_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 5))
@@ -44,7 +44,7 @@ if coil_3_threshold_test:
 else:
     coil_3_thresh_arr = [1.3]
 
-delta_t = 0.01  # time step in seconds
+delta_t = 0.0025  # time step in seconds
 
 max_time = 1.5
 
@@ -332,7 +332,7 @@ for volt in voltage_arr:
                             sequential_cutoff_check()
 
                         any_coils_on = False
-                        r = 10000000
+                        r = 99999999999999999999999999
                         for coil in coils:
                             if coil.on:
                                 any_coils_on = True
