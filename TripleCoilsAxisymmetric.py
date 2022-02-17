@@ -12,9 +12,10 @@ start_time = time_module.time()
 
 voltage_test = False
 num_turns_test = False
-starting_pos_test = False
-coil_2_threshold_test = False
-coil_3_threshold_test = False
+starting_pos_test = True
+coil_2_threshold_test = True
+coil_3_threshold_test = True
+model_type = "spaced"
 
 # Circuit Parameters #
 if voltage_test:
@@ -28,24 +29,24 @@ else:
     num_turns_arr = [500]
 
 # Coil Timing Arrays #
-if starting_pos_test:
-    starting_pos_arr = [0, 0.5, 1.0, 1.5, 2.0]
+if starting_pos_test:  # location of the tip of the projectile relative to the start of coil 1
+    starting_pos_arr = [-0.5, 0, 0.5]
 else:
-    starting_pos_arr = [1.5]
+    starting_pos_arr = [-0]
 
 if coil_2_threshold_test:
-    coil_2_thresh_arr = np.ndarray.tolist(np.linspace(0.6, 1.3, 5))
+    coil_2_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 5))
 else:
     coil_2_thresh_arr = [1.125]
 
 if coil_3_threshold_test:
-    coil_3_thresh_arr = np.ndarray.tolist(np.linspace(0.6, 1.3, 5))
+    coil_3_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 5))
 else:
     coil_3_thresh_arr = [1.3]
 
-delta_t = 0.001  # time step in seconds
+delta_t = 0.0025  # time step in seconds
 
-max_time = 0.5
+max_time = 1.5
 
 # Firing Mode: Only one can be true #
 sequential_cutoff = False
@@ -64,7 +65,7 @@ mu = 0.05  # coefficient of dynamic friction, 0.5 for sliding PLA on steel, very
 mu_s = 1.0  # coefficient of static friction, 1.0 for sliding PLA on steel, N/A for rolling
 
 
-header = ["Voltage", "Number of Turns", "Starting Position", "Coil 2 Distance Threshold", "Coil 3 Distance Threshold", "Number of Turns", "Max Velocity"]
+header = ["Model Type", "Voltage", "Number of Turns", "Starting Distance of Tip From Coil 1", "Coil 2 Distance Threshold", "Coil 3 Distance Threshold", "Number of Turns", "Max Velocity"]
 
 output_arr_master = []  # array for storing the output data for the batchrun.csv file
 
@@ -81,14 +82,21 @@ for volt in voltage_arr:
             for coil_2_threshold_dist in coil_2_thresh_arr:
                 for coil_3_threshold_dist in coil_3_thresh_arr:
 
-                    print("\nVoltage", volt, "Number of Turns", num_turns, "Coil 2 Threshold Dist:", coil_2_threshold_dist, "Coil 3 Threshold Dist:", coil_3_threshold_dist)
+                    print("\nModel Type", model_type, "Voltage", volt, "Number of Turns", num_turns, "Starting Distance From Tip to Coil 1:", starting_pos, "Coil 2 Threshold Dist:", coil_2_threshold_dist, "Coil 3 Threshold Dist:", coil_3_threshold_dist)
 
                     current_directory = os.getcwd()  # get current working directory for file creation
 
                     femm.openfemm()
 
                     # Model Information - could move outside #
-                    model = "ThreeCoilModelAxi.fem"
+                    if model_type == "condensed":
+                        model = "ThreeCoilModelAxi.fem"
+                    elif model_type == "spaced":
+                        model = "ThreeCoilModelAxi_Spaced.fem"
+                    else:
+                        model = ""
+                        print("Improper model_type. Must be either condensed or spaced")
+                        quit()
                     model_path = "Models/" + model
                     femm.opendocument(model_path)
                     temp_path = "Models/" + "temp.fem"
@@ -107,7 +115,7 @@ for volt in voltage_arr:
                     if not os.path.exists(final_directory):
                         os.makedirs(final_directory)
 
-                    test_folder_path = "Test Data/" + str(volt) + "Volts-" + str(num_turns) + "Turns-" + str(round(starting_pos,3)) + "in-" + str(round(coil_2_threshold_dist, 3)) + "in-" + str(round(coil_3_threshold_dist, 3)) + "in-" + str(datetime.now().strftime("%B-%d-%Y-%H-%M-%S"))
+                    test_folder_path = "Test Data/" + str(volt) + "Volts-" + str(num_turns) + "Turns-"+model_type+"-"+ str(round(starting_pos, 3)) + "in-" + str(round(coil_2_threshold_dist, 3)) + "in-" + str(round(coil_3_threshold_dist, 3)) + "in-" + str(datetime.now().strftime("%B-%d-%Y-%H-%M-%S"))
                     final_directory = os.path.join(current_directory, test_folder_path)
                     if not os.path.exists(final_directory):
                         os.makedirs(final_directory)
@@ -128,7 +136,7 @@ for volt in voltage_arr:
                         proj_mass = slug_mass + sled_mass
 
                     # Coil Parameters
-                    coil_radius = 1.5  # coil radius in inches
+                    coil_radius = 1.7345  # coil radius in inches
                     coil_circumference = 2*np.pi*coil_radius
                     r_per_in = 6.385/(1000*12)  # the resistance per inch of cable
                     coil_wire_length = num_turns * coil_circumference
@@ -145,19 +153,30 @@ for volt in voltage_arr:
                     I_0 = voltage_0/r  # initial current in Amps
                     c = 30/1000  # capacitance of each capacitor (default is 30000uF, 30mF, or 0.03F)
 
-                    simulation_file_proj_start_y = 1.5
+                    if model_type == "condensed":
+                        coil_1_start_location = 1.5
+                        simulation_file_proj_center_start_y = 1.5
+                    elif model_type == "spaced":
+                        coil_1_start_location = -1.5
+                        simulation_file_proj_center_start_y = -1.5
+                    else:
+                        simulation_file_proj_center_start_y = 0
+                        coil_1_start_location = 0
+                        print("Improper model_type. Must be either condensed or spaced")
+                        quit()
+                    simulation_file_proj_tip_start_y = simulation_file_proj_center_start_y + proj_l/2
 
-                    change_in_proj_center_start_y = starting_pos - simulation_file_proj_start_y
+                    change_in_proj_tip_start_y = starting_pos - simulation_file_proj_tip_start_y + coil_1_start_location
 
-                    if change_in_proj_center_start_y != 0:
-                        print("Moving projectile start to:", starting_pos, "from", simulation_file_proj_start_y, " a change of", change_in_proj_center_start_y)
+                    if change_in_proj_tip_start_y != 0:
+                        print("Moving tip of projectile", starting_pos, " inches from the start of coil 1 a change of", change_in_proj_tip_start_y, "inches")
 
                     femm.mi_seteditmode('group')
                     femm.mi_selectgroup(1)
-                    femm.mi_movetranslate(0, change_in_proj_center_start_y)
+                    femm.mi_movetranslate(0, change_in_proj_tip_start_y)
 
                     # proj_center_start_y = 1.5
-                    proj_center_start_y = starting_pos
+                    proj_center_start_y = starting_pos-proj_l/2+coil_1_start_location
                     proj_center_end_y = 12.5
                     v = 0  # initial velocity in in/sec
 
@@ -193,10 +212,18 @@ for volt in voltage_arr:
                             self.power_on_time = power_on_time
 
 
-
-                    coil_1 = Coil(1, 1.43, 2.5, 2, True, 0, 0)
-                    coil_2 = Coil(2, 1.43, 5, 3, True, 0, -1)
-                    coil_3 = Coil(3, 1.43, 7.5, 4, True, 0, -1)
+                    if model_type == "condensed":
+                        coil_1 = Coil(1, 1.7345, 2.5, 2, True, 0, 0)
+                        coil_2 = Coil(2, 1.7345, 5, 3, True, 0, -1)
+                        coil_3 = Coil(3, 1.7345, 7.5, 4, True, 0, -1)
+                    elif model_type == "spaced":
+                        coil_1 = Coil(1, 1.7345, -0.5, 2, True, 0, 0)
+                        coil_2 = Coil(2, 1.7345, 5, 3, True, 0, -1)
+                        coil_3 = Coil(3, 1.7345, 10.5, 4, True, 0, -1)
+                    else:
+                        coil_1, coil_2, coil_3 = [], [], []
+                        print("Improper model_type. Must be either condensed or spaced")
+                        quit()
 
                     coils = [coil_1, coil_2, coil_3]
 
@@ -226,7 +253,7 @@ for volt in voltage_arr:
                                     femm.mi_selectlabel(coil.x_center, coil.y_center)
                                     femm.mi_setblockprop("18 AWG", 0, 0.2, "<None>", 0, coil.group, 0)
                                     coil.shut_down_time = time[-1]
-                                    print("Coil", str(coil.num), "turned off")
+                                    # print("Coil", str(coil.num), "turned off")
                                     coil.on = False
                                     current_coil += 1
                                 elif proj_curr_y < coil.y_center and not coil.on:
@@ -240,13 +267,13 @@ for volt in voltage_arr:
                                         femm.mi_setblockprop("18 AWG", 0, 0.2, "New Circuit", 0, coil.group, num_turns)  # negative loop for left, positive loop for right
                                         femm.mi_clearselected()
                                         coil.power_on_time = time[-1]
-                                        print("Coil", str(coil.num), "turned on")
+                                        # print("Coil", str(coil.num), "turned on")
                                         coil.on = True
                                         time_since_coil_activation = 0
                             elif coil.num != current_coil and coil.on:  # used for the initial proper setting
                                 femm.mi_selectlabel(coil.x_center, coil.y_center)
                                 femm.mi_setblockprop("18 AWG", 0, 0.2, "<None>", 0, coil.group, 0)
-                                print("Coil", str(coil.num), "turned off")
+                                # print("Coil", str(coil.num), "turned off")
                                 coil.on = False
                             femm.mi_clearselected()
                         femm.mi_clearselected()
@@ -279,6 +306,11 @@ for volt in voltage_arr:
 
                         elif sequential_cutoff:
                             sequential_cutoff_check()
+
+                        any_coils_on = False
+                        for coil in coils:
+                            if coil.on:
+                                any_coils_on = True
 
                         voltage = voltage_0 * np.exp(-time_since_coil_activation/(r*c))  # voltage due to discharging capacitors
                         # print("Voltage:", voltage, "Volts")
@@ -642,7 +674,7 @@ for volt in voltage_arr:
                     animate_pos_plot()
                     animate_vel_plot()
                     # animate_coil_plot()
-                    output_arr_local = [volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, num_turns, max(vel)]
+                    output_arr_local = [model_type, volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, num_turns, max(vel)]
                     output_arr_master.append(output_arr_local)
 
 # Add all of the data to the CSV, should improve later to do it incrementally in the case of crashing/data loss
