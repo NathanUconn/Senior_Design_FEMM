@@ -13,8 +13,8 @@ start_time = time_module.time()
 voltage_test = False
 num_turns_test = False
 starting_pos_test = False
-coil_2_threshold_test = True
-coil_3_threshold_test = True
+coil_2_threshold_test = False
+coil_3_threshold_test = False
 model_type = "actual"  # spaced, condensed, condensed with spacer
 
 # Circuit Parameters #
@@ -32,19 +32,19 @@ else:
 if starting_pos_test:  # location of the tip of the projectile relative to the start of coil 1
     starting_pos_arr = [-0.5, 0, 0.5]
 else:
-    starting_pos_arr = [0]
+    starting_pos_arr = [.25]
 
 if coil_2_threshold_test:
     coil_2_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 5))
 else:
-    coil_2_thresh_arr = [1.125]
+    coil_2_thresh_arr = [1.5] # 1.625
 
 if coil_3_threshold_test:
     coil_3_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 5))
 else:
-    coil_3_thresh_arr = [1.3]
+    coil_3_thresh_arr = [1.4]  # 1.4
 
-delta_t = 0.0025  # time step in seconds
+delta_t = 0.005  # time step in seconds
 
 max_time = 1.5
 
@@ -60,9 +60,13 @@ if num_turns_arr == ["actual"] and sequential_cutoff:
 # Drag Parameters #
 
 body_loaded = True   # Whether the cylindrical body is loaded into the sled or if the system is being dry fired (
-drag_coeff = 0.75  # drag coefficient of the body, GET FROM JASON
-fluid_density = 1.225  # kg/m^3, 1.225 kg/m^3 for air, 1000 kg/m^3
+water = True
+if water:
+    fluid_density = 1000  # kg/m^3, water
+else:
+    fluid_density = 1.225 # kg/m^#, air
 proj_cross_sec = 4.90874 * (0.0254**2)  # area of tube opening in m^2
+drag_coeff = 0.75  # drag coefficient of the body, GET FROM JASON
 
 # Friction Parameters #
 
@@ -104,7 +108,7 @@ for volt in voltage_arr:
                     elif model_type == "spaced":
                         model = "ThreeCoilModelAxi_Spaced.fem"
                     elif model_type == "actual":
-                        model = "ThreeCoilModelAxi-wSpacer.fem"
+                        model = "ThreeCoilModelAxi_actual.fem"
                     else:
                         model = ""
                         print("Improper model_type. Must be either actual, condensed, or spaced")
@@ -141,11 +145,14 @@ for volt in voltage_arr:
                     slug_mass = proj_density * proj_vol
                     sled_mass = 58.21/1000
                     body_mass = 105.42/1000
+                    water_mass = 643.5/1000  # calculated using 8 inches of water in the tube for expulsion
 
                     if body_loaded:  # if the cylindrical body is in the sled or just dry launching the sled
                         proj_mass = slug_mass + sled_mass + body_mass
                     else:
                         proj_mass = slug_mass + sled_mass
+                    if water:
+                        proj_mass += water_mass
 
                     # Coil Parameters
                     coil_radius = 1.7345  # coil radius in inches
@@ -174,8 +181,8 @@ for volt in voltage_arr:
                         coil_1_start_location = -1.5
                         simulation_file_proj_center_start_y = -1.5
                     elif model_type == "actual":
-                        coil_1_start_location = 1.5
-                        simulation_file_proj_center_start_y = 1.5
+                        coil_1_start_location = 1
+                        simulation_file_proj_center_start_y = 1
                     else:
                         simulation_file_proj_center_start_y = 0
                         coil_1_start_location = 0
@@ -198,6 +205,7 @@ for volt in voltage_arr:
                     v = 0  # initial velocity in in/sec
 
                     proj_curr_y = proj_center_start_y
+                    print("Current y:", proj_curr_y)
                     time = []
                     current_arr = []
                     latest_time = 0
@@ -235,15 +243,19 @@ for volt in voltage_arr:
                     if model_type == "condensed":
                         coil_1 = Coil(1, 1.7345, 2.5, coil_1_turns, 2, True, 0, 0)
                         coil_2 = Coil(2, 1.7345, 5, coil_2_turns, 3, True, 0, -1)
-                        coil_3 = Coil(3, 1.7345, coil_3_turns, 7.5, 4, True, 0, -1)
+                        coil_3 = Coil(3, 1.7345, 7.5, coil_3_turns, 4, True, 0, -1)
                     elif model_type == "spaced":
                         coil_1 = Coil(1, 1.7345, -0.5, coil_1_turns, 2, True, 0, 0)
                         coil_2 = Coil(2, 1.7345, 5, coil_2_turns, 3, True, 0, -1)
                         coil_3 = Coil(3, 1.7345, 10.5, coil_3_turns, 4, True, 0, -1)
+                    # elif model_type == "actual":
+                    #     coil_1 = Coil(1, 1.7345, 2.5, coil_1_turns, 2, True, 0, 0)
+                    #     coil_2 = Coil(2, 1.7345, 5, coil_2_turns, 3, True, 0, -1)
+                    #     coil_3 = Coil(3, 1.7345, 7.875, coil_3_turns, 4, True, 0, -1)
                     elif model_type == "actual":
-                        coil_1 = Coil(1, 1.7345, 2.5, coil_1_turns, 2, True, 0, 0)
+                        coil_1 = Coil(1, 1.7345, 2, coil_1_turns, 2, True, 0, 0)
                         coil_2 = Coil(2, 1.7345, 5, coil_2_turns, 3, True, 0, -1)
-                        coil_3 = Coil(3, 1.7345, 7.875, coil_3_turns, 4, True, 0, -1)
+                        coil_3 = Coil(3, 1.7345, 8, coil_3_turns, 4, True, 0, -1)
                     else:
                         coil_1, coil_2, coil_3 = [], [], []
                         print("Improper model_type. Must be either actual, condensed, or spaced")
@@ -347,12 +359,15 @@ for volt in voltage_arr:
                         femm.mi_modifycircprop("New Circuit", 1, current)  # propnum = 1 is the total current, change the current in FEMM
 
                         femm.mi_seteditmode('group')  # select groups of points/lines
-                        femm.mi_analyze()  # run the FEMM simulation
-                        femm.mi_loadsolution()  # gather the FEMM simulation data
+                        if any_coils_on:
+                            femm.mi_analyze()  # run the FEMM simulation
+                            femm.mi_loadsolution()  # gather the FEMM simulation data
 
-                        femm.mo_clearblock()
-                        femm.mo_groupselectblock(1)  # select the slug (body 1)
-                        force_y = femm.mo_blockintegral(19)  # get the force acting on the slug
+                            femm.mo_clearblock()
+                            femm.mo_groupselectblock(1)  # select the slug (body 1)
+                            force_y = femm.mo_blockintegral(19)  # get the force acting on the slug
+                        else:
+                            force_y = 0
                         # print("FEMM Reported Force on Slug", force_y)
 
                         pos.append(proj_curr_y)  # add the current position to the position array
