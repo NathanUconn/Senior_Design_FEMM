@@ -12,9 +12,9 @@ start_time = time_module.time()
 
 voltage_test = False
 num_turns_test = False
-starting_pos_test = False
-coil_2_threshold_test = False
-coil_3_threshold_test = False
+starting_pos_test = True
+coil_2_threshold_test = True
+coil_3_threshold_test = True
 model_type = "actual"  # spaced, condensed, condensed with spacer
 
 # Circuit Parameters #
@@ -30,17 +30,17 @@ else:
 
 # Coil Timing Arrays #
 if starting_pos_test:  # location of the tip of the projectile relative to the start of coil 1
-    starting_pos_arr = [-0.5, 0, 0.5]
+    starting_pos_arr = [-0.25, 0, 0.25]
 else:
     starting_pos_arr = [.25]
 
 if coil_2_threshold_test:
-    coil_2_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 5))
+    coil_2_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 4))
 else:
-    coil_2_thresh_arr = [1.5] # 1.625
+    coil_2_thresh_arr = [1.5]  # 1.625
 
 if coil_3_threshold_test:
-    coil_3_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 5))
+    coil_3_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 4))
 else:
     coil_3_thresh_arr = [1.4]  # 1.4
 
@@ -84,6 +84,9 @@ print("Starting Position Array", starting_pos_arr)
 print("Coil 2 Threshold Array", coil_2_thresh_arr)
 print("Coil 3 Threshold Array", coil_3_thresh_arr)
 
+num_combos = len(voltage_arr) * len(num_turns_arr) * len(starting_pos_arr) * len(coil_2_thresh_arr) * len(coil_3_thresh_arr)
+print("Number of testing combos:", num_combos)
+
 # Main testing loops #
 for volt in voltage_arr:
     for num_turns in num_turns_arr:
@@ -95,6 +98,7 @@ for volt in voltage_arr:
                         coil_1_turns, coil_2_turns, coil_3_turns = 500, 500, 420
                     else:
                         coil_1_turns, coil_2_turns, coil_3_turns = num_turns, num_turns, num_turns
+
 
                     print("\nModel Type", model_type, "Voltage", volt, "Number of Turns", num_turns, "Starting Distance From Tip to Coil 1:", starting_pos, "Coil 2 Threshold Dist:", coil_2_threshold_dist, "Coil 3 Threshold Dist:", coil_3_threshold_dist)
 
