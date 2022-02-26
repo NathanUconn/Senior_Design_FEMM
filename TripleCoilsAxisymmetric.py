@@ -12,9 +12,9 @@ start_time = time_module.time()
 
 voltage_test = False
 num_turns_test = False
-starting_pos_test = True
-coil_2_threshold_test = True
-coil_3_threshold_test = True
+starting_pos_test = False
+coil_2_threshold_test = False
+coil_3_threshold_test = False
 model_type = "actual"  # spaced, condensed, condensed with spacer
 
 # Circuit Parameters #
@@ -37,14 +37,15 @@ else:
 if coil_2_threshold_test:
     coil_2_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 4))
 else:
-    coil_2_thresh_arr = [1.5]  # 1.625
+    coil_2_thresh_arr = [1.4]  # 1.625
 
 if coil_3_threshold_test:
     coil_3_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 4))
 else:
     coil_3_thresh_arr = [1.4]  # 1.4
 
-delta_t = 0.005  # time step in seconds
+delta_t = 0.0025  # time step in seconds
+decimals = (str(delta_t)[::-1].find('.'))
 
 max_time = 1.5
 
@@ -99,7 +100,10 @@ for volt in voltage_arr:
                     else:
                         coil_1_turns, coil_2_turns, coil_3_turns = num_turns, num_turns, num_turns
 
-
+                    if water:
+                        print("Testing submerged")
+                    else:
+                        print("Testing dry")
                     print("\nModel Type", model_type, "Voltage", volt, "Number of Turns", num_turns, "Starting Distance From Tip to Coil 1:", starting_pos, "Coil 2 Threshold Dist:", coil_2_threshold_dist, "Coil 3 Threshold Dist:", coil_3_threshold_dist)
 
                     current_directory = os.getcwd()  # get current working directory for file creation
@@ -197,7 +201,7 @@ for volt in voltage_arr:
                     change_in_proj_tip_start_y = starting_pos - simulation_file_proj_tip_start_y + coil_1_start_location
 
                     if change_in_proj_tip_start_y != 0:
-                        print("Moving tip of projectile", starting_pos, " inches from the start of coil 1 a change of", change_in_proj_tip_start_y, "inches")
+                        print("Moving tip of projectile", starting_pos, " inches from the start of coil 1 a change of", round(change_in_proj_tip_start_y, decimals), "inches")
 
                     femm.mi_seteditmode('group')
                     femm.mi_selectgroup(1)
@@ -205,16 +209,16 @@ for volt in voltage_arr:
 
                     # proj_center_start_y = 1.5
                     proj_center_start_y = starting_pos-proj_l/2+coil_1_start_location
-                    proj_center_end_y = 12.5
+                    proj_center_end_y = 13
                     v = 0  # initial velocity in in/sec
 
                     proj_curr_y = proj_center_start_y
-                    print("Current y:", proj_curr_y)
+                    # print("Current y:", proj_curr_y)
                     time = []
                     current_arr = []
                     latest_time = 0
                     time_since_coil_activation = 0
-                    decimals = (str(delta_t)[::-1].find('.'))
+
 
                     config_dict = {'Model': model, "Voltage": volt, "Num Turns": num_turns, "Starting Position": proj_center_start_y,"Coil 2 Threshold Distance": coil_2_threshold_dist, "Coil 3 Threshold Distance": coil_3_threshold_dist, 'Slug Radius': proj_r, 'Slug Length':  proj_l, 'Projectile Volume': proj_vol, 'Slug Mass': slug_mass, 'Projectile Mass': proj_mass, 'Proj Center Start':  proj_center_start_y, 'Max Time': max_time, "Delta-T": delta_t}
 
@@ -427,12 +431,24 @@ for volt in voltage_arr:
 
                     for coil in coils:  # get the pulse duration for each coil from its start and end time, report out
                         pulse_duration = round(coil.shut_down_time - coil.power_on_time, decimals)
-                        print("Coil", coil.num, "pulse duration:", pulse_duration, "seconds from", coil.power_on_time, "to", coil.shut_down_time, "seconds")
+                        if coil.num == 1:
+                            print("Coil", coil.num, "pulse duration:", pulse_duration, "seconds from", coil.power_on_time, "to", coil.shut_down_time, "seconds")
+                        else:
+                            print("Coil", coil.num, "pulse duration:", pulse_duration, "seconds from", coil.power_on_time, "to", coil.shut_down_time, "seconds. A delay of", round(coil.power_on_time - coils[coil.num-2].shut_down_time, decimals), "seconds since last shutoff")
 
                     coil_1_pulse_duration = round(coil_1.shut_down_time - coil_1.power_on_time, decimals)
                     coil_2_pulse_duration = round(coil_2.shut_down_time - coil_2.power_on_time, decimals)
                     coil_3_pulse_duration = round(coil_3.shut_down_time - coil_3.power_on_time, decimals)
-                    output_dict = {"Max Velocity (in/s)": max(vel), "Coil 1 Pulse Duration": coil_1_pulse_duration, "Coil 1 Pulse Start": coil_1.power_on_time, "Coil 1 Pulse Stop": coil_1.shut_down_time, "Coil 2 Pulse Duration": coil_2_pulse_duration, "Coil 2 Pulse Start": coil_2.power_on_time, "Coil 2 Pulse Stop": coil_2.shut_down_time, "Coil 3 Pulse Duration": coil_3_pulse_duration, "Coil 3 Pulse Start": coil_3.power_on_time, "Coil 3 Pulse Stop": coil_3.shut_down_time}
+                    # exit velocity defined as when the slug center reaches 12.85 in the actual model
+                    full_exit_index = 0
+                    for x in pos:
+                        if x > 12.85:
+                            full_exit_index = (np.where(pos == x))[0][0]
+                            print("Found it")
+                            print(full_exit_index)
+                            break
+                    exit_velocity = vel[full_exit_index]
+                    output_dict = {"Max Velocity (in/s)": max(vel), "Exit Velocity": exit_velocity, "Coil 1 Pulse Duration": coil_1_pulse_duration, "Coil 1 Pulse Start": coil_1.power_on_time, "Coil 1 Pulse Stop": coil_1.shut_down_time, "Coil 2 Pulse Duration": coil_2_pulse_duration, "Coil 2 Pulse Start": coil_2.power_on_time, "Coil 2 Pulse Stop": coil_2.shut_down_time, "Coil 3 Pulse Duration": coil_3_pulse_duration, "Coil 3 Pulse Start": coil_3.power_on_time, "Coil 3 Pulse Stop": coil_3.shut_down_time}
 
                     # JSON output #
                     json_output = json.dumps(output_dict)
