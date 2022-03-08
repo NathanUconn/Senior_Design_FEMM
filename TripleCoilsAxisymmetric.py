@@ -1,5 +1,6 @@
 import femm
 from matplotlib import pyplot as plt
+from matplotlib.patches import Rectangle
 from matplotlib.animation import FuncAnimation
 import numpy as np
 import os
@@ -16,10 +17,11 @@ starting_pos_test = False
 coil_2_threshold_test = False
 coil_3_threshold_test = False
 model_type = "actual"  # spaced, condensed, condensed with spacer
+display_plots = True
 
 # Circuit Parameters #
 if voltage_test:
-    voltage_arr = [160, 200, 225, 350]
+    voltage_arr = [140, 160, 225, 350]
 else:
     voltage_arr = [160]
 
@@ -30,19 +32,19 @@ else:
 
 # Coil Timing Arrays #
 if starting_pos_test:  # location of the tip of the projectile relative to the start of coil 1
-    starting_pos_arr = [-0.25, 0, 0.25]
+    starting_pos_arr = [-0.325, -0.25, 0, 0.25, 0.325]
 else:
-    starting_pos_arr = [.25]
+    starting_pos_arr = [.315]
 
 if coil_2_threshold_test:
-    coil_2_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 4))
+    coil_2_thresh_arr = np.ndarray.tolist(np.linspace(1.0, 1.5, 8))
 else:
-    coil_2_thresh_arr = [1.4]  # 1.625
+    coil_2_thresh_arr = [1.285714286]  # 1.625
 
 if coil_3_threshold_test:
-    coil_3_thresh_arr = np.ndarray.tolist(np.linspace(1.4, 2.3, 4))
+    coil_3_thresh_arr = np.ndarray.tolist(np.linspace(1.0, 1.5, 8))
 else:
-    coil_3_thresh_arr = [1.4]  # 1.4
+    coil_3_thresh_arr = [1.357142857]  # 1.4
 
 delta_t = 0.0025  # time step in seconds
 decimals = (str(delta_t)[::-1].find('.'))
@@ -75,7 +77,7 @@ mu = 0.05  # coefficient of dynamic friction, 0.5 for sliding PLA on steel, very
 mu_s = 1.0  # coefficient of static friction, 1.0 for sliding PLA on steel, N/A for rolling
 
 
-header = ["Model Type", "Voltage", "Turns", "Starting Distance of Tip From Coil 1", "Coil 2 Distance Threshold", "Coil 3 Distance Threshold", "Max Velocity"]
+header = ["Model Type", "Voltage", "Turns", "Starting Distance of Tip From Coil 1", "Coil 2 Distance Threshold", "Coil 3 Distance Threshold", "Max Velocity", "Exit Velocity"]
 
 output_arr_master = []  # array for storing the output data for the batchrun.csv file
 
@@ -101,10 +103,10 @@ for volt in voltage_arr:
                         coil_1_turns, coil_2_turns, coil_3_turns = num_turns, num_turns, num_turns
 
                     if water:
-                        print("Testing submerged")
+                        test_type = "Submerged"
                     else:
-                        print("Testing dry")
-                    print("\nModel Type", model_type, "Voltage", volt, "Number of Turns", num_turns, "Starting Distance From Tip to Coil 1:", starting_pos, "Coil 2 Threshold Dist:", coil_2_threshold_dist, "Coil 3 Threshold Dist:", coil_3_threshold_dist)
+                        test_type = "Dry"
+                    print("\nModel Type", model_type, "Test Type", test_type, "Voltage", volt, "Number of Turns", num_turns, "Starting Distance From Tip to Coil 1:", starting_pos, "Coil 2 Threshold Dist:", coil_2_threshold_dist, "Coil 3 Threshold Dist:", coil_3_threshold_dist)
 
                     current_directory = os.getcwd()  # get current working directory for file creation
 
@@ -201,7 +203,7 @@ for volt in voltage_arr:
                     change_in_proj_tip_start_y = starting_pos - simulation_file_proj_tip_start_y + coil_1_start_location
 
                     if change_in_proj_tip_start_y != 0:
-                        print("Moving tip of projectile", starting_pos, " inches from the start of coil 1 a change of", round(change_in_proj_tip_start_y, decimals), "inches")
+                        print("Moving tip of projectile", starting_pos, "inches from the start of coil 1 a change of", round(change_in_proj_tip_start_y, decimals), "inches")
 
                     femm.mi_seteditmode('group')
                     femm.mi_selectgroup(1)
@@ -209,7 +211,7 @@ for volt in voltage_arr:
 
                     # proj_center_start_y = 1.5
                     proj_center_start_y = starting_pos-proj_l/2+coil_1_start_location
-                    proj_center_end_y = 13
+                    proj_center_end_y = 13.5
                     v = 0  # initial velocity in in/sec
 
                     proj_curr_y = proj_center_start_y
@@ -219,8 +221,7 @@ for volt in voltage_arr:
                     latest_time = 0
                     time_since_coil_activation = 0
 
-
-                    config_dict = {'Model': model, "Voltage": volt, "Num Turns": num_turns, "Starting Position": proj_center_start_y,"Coil 2 Threshold Distance": coil_2_threshold_dist, "Coil 3 Threshold Distance": coil_3_threshold_dist, 'Slug Radius': proj_r, 'Slug Length':  proj_l, 'Projectile Volume': proj_vol, 'Slug Mass': slug_mass, 'Projectile Mass': proj_mass, 'Proj Center Start':  proj_center_start_y, 'Max Time': max_time, "Delta-T": delta_t}
+                    config_dict = {'Model': model, "Test Type": test_type, "Voltage": volt, "Num Turns": num_turns, "Starting Position": proj_center_start_y,"Coil 2 Threshold Distance": coil_2_threshold_dist, "Coil 3 Threshold Distance": coil_3_threshold_dist, 'Slug Radius': proj_r, 'Slug Length':  proj_l, 'Projectile Volume': proj_vol, 'Slug Mass': slug_mass, 'Projectile Mass': proj_mass, 'Proj Center Start':  proj_center_start_y, 'Max Time': max_time, "Delta-T": delta_t}
 
                     json_output = json.dumps(config_dict)
                     config_path = test_folder_path + "/config_dict.json"
@@ -441,11 +442,11 @@ for volt in voltage_arr:
                     coil_3_pulse_duration = round(coil_3.shut_down_time - coil_3.power_on_time, decimals)
                     # exit velocity defined as when the slug center reaches 12.85 in the actual model
                     full_exit_index = 0
+                    exit_time = 0
                     for x in pos:
                         if x > 12.85:
                             full_exit_index = (np.where(pos == x))[0][0]
-                            print("Found it")
-                            print(full_exit_index)
+                            exit_time = time[full_exit_index]
                             break
                     exit_velocity = vel[full_exit_index]
                     output_dict = {"Max Velocity (in/s)": max(vel), "Exit Velocity": exit_velocity, "Coil 1 Pulse Duration": coil_1_pulse_duration, "Coil 1 Pulse Start": coil_1.power_on_time, "Coil 1 Pulse Stop": coil_1.shut_down_time, "Coil 2 Pulse Duration": coil_2_pulse_duration, "Coil 2 Pulse Start": coil_2.power_on_time, "Coil 2 Pulse Stop": coil_2.shut_down_time, "Coil 3 Pulse Duration": coil_3_pulse_duration, "Coil 3 Pulse Start": coil_3.power_on_time, "Coil 3 Pulse Stop": coil_3.shut_down_time}
@@ -492,15 +493,16 @@ for volt in voltage_arr:
 
                         # Plot Vertical lines for
                         for coil in coils:
-                            label_string = "Coil " + str(coil.num) + "On and Off"
+                            label_string = "Coil " + str(coil.num)
                             if coil.num == 1:
                                 line_color = "orange"
                             elif coil.num == 2:
                                 line_color = "green"
                             else:
                                 line_color = "black"
-                            ax.axvline(x=coil.shut_down_time, color=line_color, label=label_string)
-                            ax.axvline(x=coil.power_on_time, color=line_color)
+                            # ax.axvline(x=coil.shut_down_time, color=line_color, label=label_string)
+                            # ax.axvline(x=coil.power_on_time, color=line_color)
+                            ax.add_patch(Rectangle((coil.power_on_time, lower_bound), coil.shut_down_time-coil.power_on_time, max(coil_force)*1.1, color=line_color, alpha=0.5, label=label_string))
 
                         fig_path = test_folder_path + "/coil_force.png"
 
@@ -526,9 +528,10 @@ for volt in voltage_arr:
                         animation = FuncAnimation(figure, func = animation_function, interval=50, frames=anim_frames, blit=False, repeat=False)
                         ax.legend(loc="upper right")
                         ax2.legend(loc="upper left")
-                        plt.show(block=False)
-                        plt.pause(7)
-                        plt.close()
+                        if display_plots:
+                            plt.show(block=False)
+                            plt.pause(7)
+                            plt.close()
 
 
                     def animate_pos_plot(): # does what it says on the tin
@@ -571,9 +574,10 @@ for volt in voltage_arr:
 
 
                         animation = FuncAnimation(figure, func = animation_function, interval=50, frames=anim_frames, blit=False, repeat=False)
-                        plt.show(block=False)
-                        plt.pause(7)
-                        plt.close()
+                        if display_plots:
+                            plt.show(block=False)
+                            plt.pause(7)
+                            plt.close()
 
 
                     def animate_vel_plot(): # does what it says on the tin
@@ -596,6 +600,7 @@ for volt in voltage_arr:
                         line, = ax.plot(0, 0)
 
                         fig_path = test_folder_path + "/vel.png"
+                        ax.axvline(x=exit_time, color="green", label="Expulsion")
 
                         def animation_function(i):
                             i_orig = i
@@ -614,9 +619,10 @@ for volt in voltage_arr:
                         plt.title("Vel(in/s) of Slug Versus Time(s)")
                         plt.xlabel("Time(s)")
                         plt.ylabel("Vel(in/s)")
-                        plt.show(block=False)
-                        plt.pause(7)
-                        plt.close()
+                        if display_plots:
+                            plt.show(block=False)
+                            plt.pause(7)
+                            plt.close()
 
 
                     def animate_coil_plot():  # custom animation of projectile being launched
@@ -729,14 +735,17 @@ for volt in voltage_arr:
                         print("Frames:", frames)
                         print("Requested Frames per Second:", frames_per_sec)
                         anim.save("coil.gif", writer='pillow', fps=frames_per_sec)
-                        plt.show()
+                        if display_plots:
+                            plt.show(block=False)
+                            plt.pause(7)
+                            plt.close()
 
 
                     animate_force_plot()
                     animate_pos_plot()
                     animate_vel_plot()
-                    # animate_coil_plot()
-                    output_arr_local = [model_type, volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, max(vel)]
+                    animate_coil_plot()
+                    output_arr_local = [model_type, volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, max(vel), exit_velocity]
                     output_arr_master.append(output_arr_local)
 
 # Add all of the data to the CSV, should improve later to do it incrementally in the case of crashing/data loss

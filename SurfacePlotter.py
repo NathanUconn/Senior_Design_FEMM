@@ -24,7 +24,7 @@ ax = fig.add_subplot(111, projection='3d')
 surf = ax.plot_trisurf(X, Y, Z, color='white', edgecolors='grey', alpha=0.5, cmap=cm.coolwarm)
 ax.scatter(X, Y, Z, c='red', s=1)
 
-plt.title("Exit Velocity Versus Threshold Distances for 240-Turn 160-Volt Coils")
+plt.title("Submegered Exit Velocity Versus Threshold Distances for 160-Volt Coils 0.315 in Starting Distance")
 ax.set_xlabel("Coil 2 Threshold Distance (in)")
 ax.set_ylabel("Coil 3 Threshold Distance (in)")
 ax.set_zlabel('Exit Velocity (in/s)')
