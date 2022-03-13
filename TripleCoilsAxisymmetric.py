@@ -18,7 +18,7 @@ coil_2_threshold_test = False
 coil_3_threshold_test = False
 added_mass_test = False
 model_type = "actual"  # spaced, condensed, condensed with spacer
-display_plots = True
+display_plots = False
 
 # Circuit Parameters #
 if voltage_test:
@@ -35,24 +35,24 @@ else:
 if starting_pos_test:  # location of the tip of the projectile relative to the start of coil 1
     starting_pos_arr = [-0.325, -0.25, 0, 0.25, 0.325]
 else:
-    starting_pos_arr = [.25]
+    starting_pos_arr = [0]
 
 if coil_2_threshold_test:
     coil_2_thresh_arr = np.ndarray.tolist(np.linspace(1.0, 1.5, 8))
 else:
-    coil_2_thresh_arr = [1.285714286]  # 1.625
+    coil_2_thresh_arr = [1.75]  # 1.625
 
 if coil_3_threshold_test:
     coil_3_thresh_arr = np.ndarray.tolist(np.linspace(1.0, 1.5, 8))
 else:
-    coil_3_thresh_arr = [1.357142857]  # 1.4
+    coil_3_thresh_arr = [2]  # 1.4
 
 if added_mass_test:
     added_mass_arr = [0, 20, 40, 60, 80, 100]
 else:
     added_mass_arr = [0]
 
-delta_t = 0.25  # time step in milliseconds
+delta_t = 1  # time step in milliseconds
 delta_t = delta_t/1000  # convert time step to seconds
 decimals = (str(delta_t)[::-1].find('.'))
 
@@ -64,7 +64,7 @@ sequential_firing = True
 manual_timings = False
 
 if manual_timings:
-    timing_arr = [27, 17, 13, 12, 7]  # ms [coil_1_duration, coil_2_duration, coil_3_duration, coil_1_2_delay, coil_2_3_delay]
+    timing_arr = [40, 25.5, 20.5, 8, 3]  # ms [coil_1_duration, coil_2_duration, coil_3_duration, coil_1_2_delay, coil_2_3_delay]
     timing_arr = [timing/1000 for timing in timing_arr]
 else:
     timing_arr = [0, 0, 0, 0, 0]
@@ -77,7 +77,7 @@ if num_turns_arr == ["actual"] and sequential_cutoff:
 # Drag Parameters #
 
 body_loaded = True   # Whether the cylindrical body is loaded into the sled or if the system is being dry fired (
-water = False
+water = True
 if water:
     fluid_density = 1000  # kg/m^3, water
 else:
@@ -87,7 +87,7 @@ drag_coeff = 0.75  # drag coefficient of the body, GET FROM JASON
 
 # Friction Parameters #
 
-mu = 0.1  # coefficient of dynamic friction, 0.5 for sliding PLA on steel, very low for rolling (0.4)
+mu = 0.01  # coefficient of dynamic friction, 0.5 for sliding PLA on steel, very low for rolling (0.4)
 mu_s = 1.0  # coefficient of static friction, 1.0 for sliding PLA on steel, N/A for rolling
 
 
@@ -114,9 +114,9 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
 
     if model_type == "actual":
         if volt == 165:
-            coil_1_voltage = 161
-            coil_2_voltage = 163.8
-            coil_3_voltage = 163.8
+            coil_1_voltage = 165
+            coil_2_voltage = 165
+            coil_3_voltage = 165
         elif volt == 155:
             coil_1_voltage = 155
             coil_2_voltage = 155
@@ -181,8 +181,9 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     proj_vol = proj_vol * 1.63871e-5  # volume of projectile in m^3
     proj_density = 7800  # density of iron in kg/m^3
     slug_mass = proj_density * proj_vol
+    slug_Mass = 60/1000
     print("Slug mass:", slug_mass)
-    sled_mass = 50.5 / 1000
+    sled_mass = 50 / 1000
     body_mass = 90.0 / 1000 + added_mass/1000
     water_mass = 643.5 / 1000  # calculated using 8 inches of water in the tube for expulsion
 
@@ -194,9 +195,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     if water:
         proj_mass += water_mass
 
-    proj_mass = 200/1000
-
-    print("Projectile Mass:", proj_mass, "kg")
+    print("Effective Projectile Mass:", proj_mass, "kg")
 
     # Coil Parameters
     coil_radius = 1.7345  # coil radius in inches
@@ -855,10 +854,11 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
             plt.pause(7)
             plt.close()
 
-    animate_force_plot()
-    animate_pos_plot()
-    animate_vel_plot()
-    # animate_coil_plot()
+    if display_plots:
+        animate_force_plot()
+        animate_pos_plot()
+        animate_vel_plot()
+        # animate_coil_plot()
     output_arr_local = [model_type, volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, coil_1_pulse_duration, coil_2_pulse_duration, coil_3_pulse_duration, coil_1_2_pulse_delay, coil_2_3_pulse_delay,
                         max(vel), exit_velocity]
     output_arr_master.append(output_arr_local)
