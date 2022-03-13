@@ -16,7 +16,8 @@ num_turns_test = False
 starting_pos_test = False
 coil_2_threshold_test = False
 coil_3_threshold_test = False
-added_mass_test = False
+added_mass_test = True
+drag_coeff_test = False
 model_type = "actual"  # spaced, condensed, condensed with spacer
 display_plots = False
 
@@ -52,7 +53,12 @@ if added_mass_test:
 else:
     added_mass_arr = [0]
 
-delta_t = 1  # time step in milliseconds
+if drag_coeff_test:
+    drag_coeff_arr = [.5, 1.0, 1.5, 2.0]
+else:
+    drag_coeff_arr = [0.75]
+
+delta_t = 0.5  # time step in milliseconds
 delta_t = delta_t/1000  # convert time step to seconds
 decimals = (str(delta_t)[::-1].find('.'))
 
@@ -77,13 +83,13 @@ if num_turns_arr == ["actual"] and sequential_cutoff:
 # Drag Parameters #
 
 body_loaded = True   # Whether the cylindrical body is loaded into the sled or if the system is being dry fired (
-water = True
+water = False
 if water:
     fluid_density = 1000  # kg/m^3, water
 else:
     fluid_density = 1.225  # kg/m^#, air
 proj_cross_sec = 4.90874 * (0.0254**2)  # area of tube opening in m^2
-drag_coeff = 0.75  # drag coefficient of the body, GET FROM JASON
+# drag_coeff = 0.75  # drag coefficient of the body, GET FROM JASON
 
 # Friction Parameters #
 
@@ -91,7 +97,7 @@ mu = 0.01  # coefficient of dynamic friction, 0.5 for sliding PLA on steel, very
 mu_s = 1.0  # coefficient of static friction, 1.0 for sliding PLA on steel, N/A for rolling
 
 
-header = ["Model Type", "Voltage", "Turns", "Starting Distance of Tip From Coil 1", "Coil 2 Distance Threshold", "Coil 3 Distance Threshold", "Coil 1 Duration", "Coil 2 Duration", "Coil 3 Duration", "Coil 1-2 Delay", "Coil 2-3 Delay", "Max Velocity", "Exit Velocity"]
+header = ["Model Type", "Test Type", "Voltage", "Turns", "Added Mass", "Drag Coefficient", "Starting Distance of Tip From Coil 1", "Coil 2 Distance Threshold", "Coil 3 Distance Threshold", "Coil 1 Duration", "Coil 2 Duration", "Coil 3 Duration", "Coil 1-2 Delay", "Coil 2-3 Delay", "Max Velocity", "Exit Velocity"]
 
 output_arr_master = []  # array for storing the output data for the batchrun.csv file
 
@@ -100,13 +106,14 @@ print("Num Turns Array:", num_turns_arr)
 print("Starting Position Array", starting_pos_arr)
 print("Coil 2 Threshold Array", coil_2_thresh_arr)
 print("Coil 3 Threshold Array", coil_3_thresh_arr)
+print("Added Mass Array", added_mass_arr)
+print("Drag Coefficient Array", drag_coeff_arr)
 
-num_combos = len(voltage_arr) * len(num_turns_arr) * len(starting_pos_arr) * len(coil_2_thresh_arr) * len(coil_3_thresh_arr)
+num_combos = len(voltage_arr) * len(num_turns_arr) * len(starting_pos_arr) * len(coil_2_thresh_arr) * len(coil_3_thresh_arr) * len(added_mass_arr) * len(drag_coeff_arr)
 print("Number of testing combos:", num_combos)
 
 
-
-def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, added_mass):
+def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, added_mass, drag_coeff):
     if num_turns == "actual":  # 500, 500, 420
         coil_1_turns, coil_2_turns, coil_3_turns = 500, 500, 420
     else:
@@ -859,7 +866,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         animate_pos_plot()
         animate_vel_plot()
         # animate_coil_plot()
-    output_arr_local = [model_type, volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, coil_1_pulse_duration, coil_2_pulse_duration, coil_3_pulse_duration, coil_1_2_pulse_delay, coil_2_3_pulse_delay,
+    output_arr_local = [model_type, test_type, volt, num_turns, added_mass, drag_coeff, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, coil_1_pulse_duration, coil_2_pulse_duration, coil_3_pulse_duration, coil_1_2_pulse_delay, coil_2_3_pulse_delay,
                         max(vel), exit_velocity]
     output_arr_master.append(output_arr_local)
 
@@ -870,8 +877,9 @@ for volt in voltage_arr:
             for coil_2_threshold_dist in coil_2_thresh_arr:
                 for coil_3_threshold_dist in coil_3_thresh_arr:
                     for added_mass in added_mass_arr:
+                        for drag_coeff in drag_coeff_arr:
 
-                        main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, added_mass)
+                            main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, added_mass, drag_coeff)
 
 
 # Add all of the data to the CSV, should improve later to do it incrementally in the case of crashing/data loss
