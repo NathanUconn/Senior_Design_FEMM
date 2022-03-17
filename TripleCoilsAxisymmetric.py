@@ -11,7 +11,7 @@ import time as time_module
 
 start_time = time_module.time()
 
-voltage_test = False
+voltage_test = True
 num_turns_test = False
 starting_pos_test = False
 coil_2_threshold_test = False
@@ -39,14 +39,14 @@ else:
     starting_pos_arr = [0]
 
 if coil_2_threshold_test:
-    coil_2_thresh_arr = np.ndarray.tolist(np.linspace(1.0, 1.5, 8))
+    coil_2_thresh_arr = np.ndarray.tolist(np.linspace(0.5, 1.5, 5))
 else:
-    coil_2_thresh_arr = [1.75]  # 1.625
+    coil_2_thresh_arr = [1.75]  # 1.625, 1.75
 
 if coil_3_threshold_test:
-    coil_3_thresh_arr = np.ndarray.tolist(np.linspace(1.0, 1.5, 8))
+    coil_3_thresh_arr = np.ndarray.tolist(np.linspace(0.5, 1.5, 5))
 else:
-    coil_3_thresh_arr = [2]  # 1.4
+    coil_3_thresh_arr = [2]  # 1.4, 2
 
 if added_mass_test:
     added_mass_arr = [0, 20, 40, 60, 80, 100]
@@ -56,7 +56,7 @@ else:
 if drag_coeff_test:
     drag_coeff_arr = [.5, 1.0, 1.5, 2.0]
 else:
-    drag_coeff_arr = [0.75]
+    drag_coeff_arr = [2.92762]
 
 delta_t = 0.5  # time step in milliseconds
 delta_t = delta_t/1000  # convert time step to seconds
@@ -83,12 +83,12 @@ if num_turns_arr == ["actual"] and sequential_cutoff:
 # Drag Parameters #
 
 body_loaded = True   # Whether the cylindrical body is loaded into the sled or if the system is being dry fired (
-water = False
+water = True
 if water:
     fluid_density = 1000  # kg/m^3, water
 else:
     fluid_density = 1.225  # kg/m^#, air
-proj_cross_sec = 4.90874 * (0.0254**2)  # area of tube opening in m^2
+proj_cross_sec = 2.505 * (0.0254**2)  # area of tube opening in m^2
 # drag_coeff = 0.75  # drag coefficient of the body, GET FROM JASON
 
 # Friction Parameters #
@@ -111,9 +111,11 @@ print("Drag Coefficient Array", drag_coeff_arr)
 
 num_combos = len(voltage_arr) * len(num_turns_arr) * len(starting_pos_arr) * len(coil_2_thresh_arr) * len(coil_3_thresh_arr) * len(added_mass_arr) * len(drag_coeff_arr)
 print("Number of testing combos:", num_combos)
+test_num = 0
 
 
 def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, added_mass, drag_coeff):
+    print("Test:", test_num)
     if num_turns == "actual":  # 500, 500, 420
         coil_1_turns, coil_2_turns, coil_3_turns = 500, 500, 420
     else:
@@ -138,7 +140,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     else:
         test_type = "Dry"
     print("\nModel Type", model_type, "Test Type", test_type, "Voltage", volt, "Number of Turns", num_turns,
-          "Starting Distance From Tip to Coil 1:", starting_pos, "Coil 2 Threshold Dist:", coil_2_threshold_dist,
+          "Added Mass", added_mass, "Starting Distance From Tip to Coil 1:", starting_pos, "Coil 2 Threshold Dist:", coil_2_threshold_dist,
           "Coil 3 Threshold Dist:", coil_3_threshold_dist)
 
     current_directory = os.getcwd()  # get current working directory for file creation
@@ -188,7 +190,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     proj_vol = proj_vol * 1.63871e-5  # volume of projectile in m^3
     proj_density = 7800  # density of iron in kg/m^3
     slug_mass = proj_density * proj_vol
-    slug_Mass = 60/1000
+    slug_mass = 60/1000
     print("Slug mass:", slug_mass)
     sled_mass = 50 / 1000
     body_mass = 90.0 / 1000 + added_mass/1000
@@ -200,7 +202,8 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     else:
         proj_mass = slug_mass + sled_mass
     if water:
-        proj_mass += water_mass
+        # proj_mass += water_mass
+        proj_mass += 10/1000  # mass of water in projectile
 
     print("Effective Projectile Mass:", proj_mass, "kg")
 
@@ -464,7 +467,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         else:
             current = 0
         current_arr.append(current)
-        print("Voltage:", voltage, "Resistance:", r, "Current:", current)
+        # print("Voltage:", voltage, "Resistance:", r, "Current:", current)
         # print("Current:", current, "Amps")
         femm.mi_modifycircprop("New Circuit", 1,
                                current)  # propnum = 1 is the total current, change the current in FEMM
@@ -878,7 +881,7 @@ for volt in voltage_arr:
                 for coil_3_threshold_dist in coil_3_thresh_arr:
                     for added_mass in added_mass_arr:
                         for drag_coeff in drag_coeff_arr:
-
+                            test_num += 1
                             main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, added_mass, drag_coeff)
 
 
