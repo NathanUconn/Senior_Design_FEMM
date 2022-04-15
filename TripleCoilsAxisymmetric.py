@@ -11,7 +11,6 @@ import time as time_module
 
 start_time = time_module.time()
 
-
 # testing block, True if testing that variable, False if not
 voltage_test = True
 num_turns_test = False
@@ -43,12 +42,12 @@ else:
 if coil_2_threshold_test:  # location of the center of the projectile relative to the start of coil 2
     coil_2_thresh_arr = np.ndarray.tolist(np.linspace(0, 2.5, 6))
 else:
-    coil_2_thresh_arr = [1.75]  # 1.75 for dry, 2 for submerged
+    coil_2_thresh_arr = [2]  # 1.75 for dry, 2 for submerged
 
-if coil_3_threshold_test: # location of the center of the projectile relative to the start of coil 3
+if coil_3_threshold_test:  # location of the center of the projectile relative to the start of coil 3
     coil_3_thresh_arr = np.ndarray.tolist(np.linspace(0, 2.5, 6))
 else:
-    coil_3_thresh_arr = [2]  # 2 for dry, 1 for submerged
+    coil_3_thresh_arr = [1]  # 2 for dry, 1 for submerged
 
 if added_mass_test:  # mass added to the projectile
     added_mass_arr = [0, 20, 40, 60, 80, 100, 200, 400, 800, 1000]  # standard testing array: 0, 20, 40, 60, 80, 100
@@ -58,10 +57,10 @@ else:
 if drag_coeff_test:
     drag_coeff_arr = [4.5, 5.0, 5.5, 6.0]
 else:
-    drag_coeff_arr = [5.95]  # "actual" for drag force calculated using analytical CFD results
+    drag_coeff_arr = ["actual"]  # "actual" for drag force calculated using analytical CFD results
 
-delta_t = 1  # time step in milliseconds
-delta_t = delta_t/1000  # convert time step to seconds
+delta_t = 2  # time step in milliseconds
+delta_t = delta_t / 1000  # convert time step to seconds
 decimals = (str(delta_t)[::-1].find('.'))
 
 max_time = 1  # max time for the simulation to run too, prevents stagnation issue
@@ -72,25 +71,30 @@ sequential_firing = True  # turn each coil on and off in order, currently in use
 manual_timings = False  # give manual timings for sequential firing of coils
 
 if manual_timings:
-    timing_arr = [43, 40.5, 43, 11.5, 6]  # in ms [coil_1_duration, coil_2_duration, coil_3_duration, coil_1_2_delay, coil_2_3_delay]
-    timing_arr = [timing/1000 for timing in timing_arr]  # convert ms to s
+    timing_arr = [43, 40.5, 43, 11.5,
+                  6]  # in ms [coil_1_duration, coil_2_duration, coil_3_duration, coil_1_2_delay, coil_2_3_delay]
+    timing_arr = [timing / 1000 for timing in timing_arr]  # convert ms to s
 else:
     timing_arr = [0, 0, 0, 0, 0]
 
 if num_turns_arr == ["actual"] and sequential_cutoff:
-    print("WARNING: Sequential Cuttoff Not Validated for Actual Number of Turns(500, 500, 420)")
+    print("WARNING: Sequential Cutoff Not Validated for Actual Number of Turns(500, 500, 420)")
     print("Please retry with constant turn numbers")
     quit()
 
 # Drag Parameters #
 
-body_loaded = True   # Whether the cylindrical body is loaded into the sled or if the system is being dry fired (
-water = False  # for submerged testing water = True, for dry water = False
+body_loaded = True  # Whether the cylindrical body is loaded into the sled or if the system is being dry fired (
+water = True  # for submerged testing water = True, for dry water = False
+payload_release = True  # release payload at last coil
 if water:
     fluid_density = 1000  # kg/m^3, water
 else:
     fluid_density = 1.225  # kg/m^#, air
-proj_cross_sec = 2.505 * (0.0254**2)  # cross sectional area of payload/sled in m^2
+
+proj_cross_sec = 2.505 * (0.0254 ** 2)  # cross sectional area of payload/sled in m^2
+payload_cross_sec = 1.31104 * (0.0254 ** 2)  # cross sectional area of payload in m^2
+payload_drag_coeff = 0.2708  # drag_coeff of payload only
 
 if drag_coeff_arr == ["actual"] and not water:
     print("CFD Drag Coefficient Array Only Validated for Water")
@@ -101,8 +105,10 @@ if drag_coeff_arr == ["actual"] and not water:
 mu = 0.01  # coefficient of dynamic friction, 0.5 for sliding PLA on steel, very low for rolling (0.4)
 mu_s = 1.0  # coefficient of static friction, 1.0 for sliding PLA on steel, N/A for rolling
 
-
-header = ["Model Type", "Test Type", "Voltage", "Turns", "Added Mass", "Drag Coefficient", "Starting Distance of Tip From Coil 1", "Coil 2 Distance Threshold", "Coil 3 Distance Threshold", "Coil 1 Duration", "Coil 2 Duration", "Coil 3 Duration", "Coil 1-2 Delay", "Coil 2-3 Delay", "Max Velocity", "Exit Velocity"]
+header = ["Model Type", "Test Type", "Voltage", "Turns", "Added Mass", "Drag Coefficient",
+          "Starting Distance of Tip From Coil 1", "Coil 2 Distance Threshold", "Coil 3 Distance Threshold",
+          "Coil 1 Duration", "Coil 2 Duration", "Coil 3 Duration", "Coil 1-2 Delay", "Coil 2-3 Delay", "Max Velocity",
+          "Exit Velocity"]
 
 output_arr_master = []  # array for storing the output data for the batchrun.csv file
 
@@ -114,7 +120,8 @@ print("Coil 3 Threshold Array", coil_3_thresh_arr)
 print("Added Mass Array", added_mass_arr)
 print("Drag Coefficient Array", drag_coeff_arr)
 
-num_combos = len(voltage_arr) * len(num_turns_arr) * len(starting_pos_arr) * len(coil_2_thresh_arr) * len(coil_3_thresh_arr) * len(added_mass_arr) * len(drag_coeff_arr)
+num_combos = len(voltage_arr) * len(num_turns_arr) * len(starting_pos_arr) * len(coil_2_thresh_arr) * len(
+    coil_3_thresh_arr) * len(added_mass_arr) * len(drag_coeff_arr)
 print("Number of testing combos:", num_combos)
 test_num = 0
 
@@ -145,7 +152,8 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     else:
         test_type = "Dry"
     print("\nModel Type", model_type, "Test Type", test_type, "Voltage", volt, "Number of Turns", num_turns,
-          "Added Mass", added_mass, "Starting Distance From Tip to Coil 1:", starting_pos, "Coil 2 Threshold Dist:", coil_2_threshold_dist,
+          "Added Mass", added_mass, "Starting Distance From Tip to Coil 1:", starting_pos, "Coil 2 Threshold Dist:",
+          coil_2_threshold_dist,
           "Coil 3 Threshold Dist:", coil_3_threshold_dist)
 
     current_directory = os.getcwd()  # get current working directory for file creation
@@ -196,10 +204,10 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     # proj_density = 7800  # density of iron in kg/m^3
     # slug_mass = proj_density * proj_vol
     slug_l = 1.3  # length of slug in inches
-    slug_mass = 60/1000
+    slug_mass = 60 / 1000
     print("Slug mass:", slug_mass)
     sled_mass = 50 / 1000
-    body_mass = 90.0 / 1000 + added_mass/1000
+    body_mass = 90.0 / 1000 + added_mass / 1000
     # water_mass = 643.5 / 1000  # calculated using 8 inches of water in the tube for expulsion
 
     if body_loaded:  # if the cylindrical body is in the sled or just dry launching the sled
@@ -209,7 +217,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         proj_mass = slug_mass + sled_mass
     if water:
         # proj_mass += water_mass
-        proj_mass += 10/1000  # mass of water in projectile
+        proj_mass += 10 / 1000  # mass of water in projectile
 
     print("Effective Projectile Mass:", proj_mass, "kg")
 
@@ -266,7 +274,8 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
 
     config_dict = {'Model': model, "Test Type": test_type, "Voltage": volt, "Num Turns": num_turns,
                    "Starting Position": proj_center_start_y, "Coil 2 Threshold Distance": coil_2_threshold_dist,
-                   "Coil 3 Threshold Distance": coil_3_threshold_dist, 'Slug Length': slug_l, 'Slug Mass': slug_mass, 'Projectile Mass': proj_mass,
+                   "Coil 3 Threshold Distance": coil_3_threshold_dist, 'Slug Length': slug_l, 'Slug Mass': slug_mass,
+                   'Projectile Mass': proj_mass,
                    'Proj Center Start': proj_center_start_y, 'Max Time': max_time, "Delta-T": delta_t}
 
     json_output = json.dumps(config_dict)
@@ -400,7 +409,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
                 print("Coil", str(coil.num), "turned on")
                 coil.on = True
             femm.mi_clearselected()
-            
+
     def manual_timings_check(current_time):
         nonlocal time_since_coil_activation
         current_coil = 0
@@ -428,9 +437,14 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
                 coil.on = False
             femm.mi_clearselected()
         femm.mi_clearselected()
-        
 
     # Main Loop #
+
+    payload_is_released = False
+    global proj_cross_sec
+    orig_cross_sec = proj_cross_sec
+    orig_proj_mass = proj_mass
+    orig_drag_coeff = drag_coeff
 
     while proj_curr_y < proj_center_end_y and latest_time < max_time:
 
@@ -440,18 +454,28 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
 
         elif sequential_cutoff:
             sequential_cutoff_check()
-            
+
         elif manual_timings:
             manual_timings_check(latest_time)
 
         any_coils_on = False
         voltage = 0
+        last_coil_y_center = 0
         for coil in coils:
             if coil.on:
                 any_coils_on = True
                 on_coil = coil.num
                 r = coil.resistance + r_resistor
-                voltage = coil.init_voltage * np.exp(-time_since_coil_activation / (r * c))  # voltage due to discharging capacitors
+                voltage = coil.init_voltage * np.exp(
+                    -time_since_coil_activation / (r * c))  # voltage due to discharging capacitors
+            last_coil_y_center = coil.y_center
+
+        if proj_curr_y >= last_coil_y_center and not payload_is_released and payload_release:
+            print("\n--------Payload Released--------\n")
+            payload_is_released = True
+            proj_cross_sec = payload_cross_sec
+            proj_mass = body_mass
+            drag_coeff = payload_drag_coeff
 
         # print("Resistance:", r)
         # print("Voltage:", voltage, "Volts")
@@ -480,10 +504,10 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         pos.append(proj_curr_y)  # add the current position to the position array
         if len(time) != 0:  # if not at the start of the simulation, determine the drag force
             time.append(latest_time)
-            if drag_coeff != "actual":
+            if drag_coeff != "actual" or payload_is_released:
                 drag_force_y = 1 / 2 * drag_coeff * fluid_density * ((vel[-1] * 0.0254) ** 2) * proj_cross_sec
             else:
-                drag_force_y = 0.00328* vel[-1]**2 - 0.00134*vel[-1]
+                drag_force_y = 0.00328 * vel[-1] ** 2 - 0.00134 * vel[-1]
                 # print("\nvelocity (in/s)", vel[-1])
                 # print("CFD Drag Force:", drag_force_y)
                 # drag_force_cc = 1 / 2 * 5.95 * fluid_density * ((vel[-1] * 0.0254) ** 2) * proj_cross_sec
@@ -495,7 +519,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         latest_time = round(latest_time, decimals)  # round time to speed up code
         # print("Time (ms):", latest_time*1000)
         time_since_coil_activation += delta_t  # modify the time since coil activation for keeping track of the current
-        # print("FORCE:", force_y)
+        # print("DRAG FORCE:", drag_force_y)
         coil_force.append(force_y)  # coil force array for plotting purposes
 
         drag_force.append(drag_force_y)  # drag force array for plotting purposes
@@ -534,10 +558,12 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         femm.mo_clearblock()
         femm.mi_selectgroup(1)
         femm.mi_movetranslate(0, v * delta_t + 0.5 * acc * delta_t * delta_t)  # move the object in FEMM
-        # possible error? !!!
 
     femm.mi_close()  # close postprocessor
     femm.closefemm()  # close entire FEMM window
+    proj_cross_sec = orig_cross_sec
+    proj_mass = orig_proj_mass
+    drag_coeff = orig_drag_coeff
 
     coil_force = np.array(coil_force)  # convert to numpy array for efficient data processing
     pos = np.array(pos)
@@ -545,28 +571,30 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     for coil in coils:  # get the pulse duration for each coil from its start and end time, report out
         pulse_duration = round(coil.shut_down_time - coil.power_on_time, decimals)
         if coil.num == 1:
-            print("Coil", coil.num, "pulse duration:", pulse_duration*1000, "ms from", coil.power_on_time*1000, "to",
-                  coil.shut_down_time*1000, "ms")
+            print("Coil", coil.num, "pulse duration:", pulse_duration * 1000, "ms from", coil.power_on_time * 1000,
+                  "to",
+                  coil.shut_down_time * 1000, "ms")
         else:
-            print("Coil", coil.num, "pulse duration:", pulse_duration*1000, "ms from", coil.power_on_time*1000, "to",
-                  coil.shut_down_time*1000, "ms. A delay of",
-                  round(coil.power_on_time - coils[coil.num - 2].shut_down_time, decimals)*1000,
+            print("Coil", coil.num, "pulse duration:", pulse_duration * 1000, "ms from", coil.power_on_time * 1000,
+                  "to",
+                  coil.shut_down_time * 1000, "ms. A delay of",
+                  round(coil.power_on_time - coils[coil.num - 2].shut_down_time, decimals) * 1000,
                   "ms since last shutoff")
 
     coil_1_pulse_duration = round(coil_1.shut_down_time - coil_1.power_on_time, decimals) * 1000  # ms
     coil_2_pulse_duration = round(coil_2.shut_down_time - coil_2.power_on_time, decimals) * 1000  # ms
     coil_3_pulse_duration = round(coil_3.shut_down_time - coil_3.power_on_time, decimals) * 1000  # ms
     coil_1_2_pulse_delay = round(coil_2.power_on_time - coil_1.shut_down_time, decimals) * 1000  # ms
-    coil_2_3_pulse_delay = round(coil_3.power_on_time-coil_2.shut_down_time, decimals) * 1000  # ms
+    coil_2_3_pulse_delay = round(coil_3.power_on_time - coil_2.shut_down_time, decimals) * 1000  # ms
     # exit velocity defined as when the slug center reaches 12.85 in the actual model dry or 8 in the actual model submerged (pulled back by final coil)
     full_exit_index = 0
     exit_time = 0
     for x in pos:
-        if x > 12.85 and not water:
+        if x > 12.85 and not water:  # 12.85 is when slug is leaving
             full_exit_index = (np.where(pos == x))[0][0]
             exit_time = time[full_exit_index]
             break
-        elif x > 8 and water:
+        elif x > 8.6 and water:  # 8 at the center of the last coil, 8.6 when projectile is just peaking out
             full_exit_index = (np.where(pos == x))[0][0]
             exit_time = time[full_exit_index]
             break
@@ -578,6 +606,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
                    "Coil 2 Pulse Start": coil_2.power_on_time, "Coil 2 Pulse Stop": coil_2.shut_down_time,
                    "Coil 3 Pulse Duration": coil_3_pulse_duration, "Coil 3 Pulse Start": coil_3.power_on_time,
                    "Coil 3 Pulse Stop": coil_3.shut_down_time}
+    print(output_dict)
 
     # JSON output #
     json_output = json.dumps(output_dict)
@@ -873,9 +902,12 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         animate_pos_plot()
         animate_vel_plot()
         # animate_coil_plot()
-    output_arr_local = [model_type, test_type, volt, num_turns, added_mass, drag_coeff, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, coil_1_pulse_duration, coil_2_pulse_duration, coil_3_pulse_duration, coil_1_2_pulse_delay, coil_2_3_pulse_delay,
+    output_arr_local = [model_type, test_type, volt, num_turns, added_mass, drag_coeff, starting_pos,
+                        coil_2_threshold_dist, coil_3_threshold_dist, coil_1_pulse_duration, coil_2_pulse_duration,
+                        coil_3_pulse_duration, coil_1_2_pulse_delay, coil_2_3_pulse_delay,
                         max(vel), exit_velocity]
     output_arr_master.append(output_arr_local)
+
 
 # Main testing loops #
 for volt in voltage_arr:
@@ -886,12 +918,12 @@ for volt in voltage_arr:
                     for added_mass in added_mass_arr:
                         for drag_coeff in drag_coeff_arr:
                             test_num += 1
-                            main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, added_mass, drag_coeff)
-
+                            main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist,
+                                          added_mass, drag_coeff)
 
 # Add all of the data to the CSV, should improve later to do it incrementally in the case of crashing/data loss
 with open('batchrun.csv', 'a+', encoding='UTF8', newline='') as f:
     writer = csv.writer(f)
     # writer.writerow(header)
     writer.writerows(output_arr_master)
-print("Total Execution time:", str(time_module.time()-start_time))
+print("Total Execution time:", str(time_module.time() - start_time))

@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 has_header = True
 # Read CSV
-submerged = False
+submerged = True
 extended = True
 if submerged:
     if extended:
-        csvFileName = "ModelDataDryExtended.csv"
+        csvFileName = "ModelDataSubmergedExtended.csv"
     else:
         csvFileName = "ModelDataSubmerged.csv"
 else:
@@ -93,16 +93,16 @@ plt.close()
 fig = plt.figure(figsize=(12,10))
 ax = fig.add_subplot()
 fit_arr_x = []
-fit_axx_x = []
+fit_axx_y = []
 for j in range(len(added_mass_exit_vel_arr[0])):
     vel_arr = list(list(zip(*added_mass_exit_vel_arr))[j])
     plt.plot(added_masses, vel_arr, ".-", markersize="15", label=(str(voltages[j]) + " volts"))
     if j == len(added_mass_exit_vel_arr[0])-1:
         fit_arr_x = added_masses
         fit_arr_y = vel_arr
-p = np.poly1d(np.polyfit(fit_arr_x, fit_arr_y, 3))
+p = np.poly1d(np.polyfit(fit_arr_x, fit_arr_y, 2))
 p_x = np.linspace(0, 1000, 1000)
-plt.plot(p_x, p(p_x), '-')
+# plt.plot(p_x, p(p_x), '-')
 if submerged:
     plt.title("Model Predicted Submerged Exit Velocity Added Mass")
 else:
