@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 has_header = True
 # Read CSV
-submerged = True
+submerged = False
 extended = True
 if submerged:
     if extended:

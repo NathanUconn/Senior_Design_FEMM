@@ -9,70 +9,79 @@ import json
 import csv
 import time as time_module
 
-start_time = time_module.time()
+# README
+# Hello! Good luck with this project. Feel free to reach out to me at nathan.wetherell2@gmail.com or by phone at 860-836-3129 if you have any questions about the code, physical rig design, 3D models, or experimental/numerical data
+# This code works to generate coil timings and expected exit velocity given different mass, voltage, coil distance thresholds (when they turn on), drag coefficient, and starting positions
+# It links with an FEMM model to do the actual magnetostatics calculation to get F_mag and the  uses the drag force using the explict equation generated using CFD or an assumed average drag coefficient
+# I would recommend running this on a desktop for batch runs or testing of a particular parameter or leaving it running on a laptop overnight. A single simulation isnt too complicated but running a batch takes a while
+# The key variables to change manually are the ones in the testing block below, the delta_t value, the body_loaded, water, payload_release, and possibly the projectile and coil parameters. Most others can be left alone. Again, contact me if you have any questions
 
-# testing block, True if testing that variable, False if not
-voltage_test = True
+start_time = time_module.time()
+file_name = "batchrun.csv"  # name of data output file
+
+# Testing block, True if testing that variable, False if not
+voltage_test = False
 num_turns_test = False
 starting_pos_test = False
 coil_2_threshold_test = False
 coil_3_threshold_test = False
-added_mass_test = True
+added_mass_test = False
 drag_coeff_test = False
-model_type = "actual"  # spaced, condensed, condensed with spacer
-display_plots = False
+model_type = "actual"  # spaced, condensed, condensed with spacer, actual is the best model we have for the system and is recommended
+display_plots = True
+display_density_plot = False  # slow, only used for fun animations
+display_animated_coil_plot = False  # runs looping animation at the end, always set to False for batch runs, good for explainations of concept
 
 # Circuit Parameters, uses array if variable above set to True, else uses single value #
 if voltage_test:
     voltage_arr = [50, 75, 100, 115, 125, 135, 145, 155, 165, 200, 300, 500]  # standard testing array: 115, 125, 135, 145, 155, 165
 else:
-    voltage_arr = [165]
+    voltage_arr = [500]
 
 if num_turns_test:
     num_turns_arr = [100, 200, 300, 315]
 else:
-    num_turns_arr = ["actual"]  # change to ["actual"] if 500, 500, 420
+    num_turns_arr = ["actual"]  # change to ["actual"] if 500, 500, 420 (as in physical rig)
 
 # Coil Timing Arrays #
 if starting_pos_test:  # location of the tip of the projectile relative to the start of coil 1
     starting_pos_arr = [-0.325, -0.25, 0, 0.25, 0.325]
 else:
-    starting_pos_arr = [0]
+    starting_pos_arr = [0]  # this is achieved by using the launch spacer till it is flush with the breech hatch block
 
 if coil_2_threshold_test:  # location of the center of the projectile relative to the start of coil 2
     coil_2_thresh_arr = np.ndarray.tolist(np.linspace(0, 2.5, 6))
 else:
-    coil_2_thresh_arr = [2]  # 1.75 for dry, 2 for submerged
+    coil_2_thresh_arr = [2]  # 1.75 for dry, 2 for submerged, optimal for test cases, could be further optimized later
 
 if coil_3_threshold_test:  # location of the center of the projectile relative to the start of coil 3
     coil_3_thresh_arr = np.ndarray.tolist(np.linspace(0, 2.5, 6))
 else:
-    coil_3_thresh_arr = [1]  # 2 for dry, 1 for submerged
+    coil_3_thresh_arr = [1]  # 2 for dry, 1 for submerged, optimal for test cases, could be further optimized later
 
 if added_mass_test:  # mass added to the projectile
-    added_mass_arr = [0, 20, 40, 60, 80, 100, 200, 400, 800, 1000]  # standard testing array: 0, 20, 40, 60, 80, 100
+    added_mass_arr = [0, 20, 40, 60, 80, 100, 200, 400, 800, 1000]  # standard testing array: 0, 20, 40, 60, 80, 100. Note: this is added mass, the base sled/payload mass is 200g so a 20g added mass would make the total mass 220g
 else:
     added_mass_arr = [0]
 
 if drag_coeff_test:
     drag_coeff_arr = [4.5, 5.0, 5.5, 6.0]
 else:
-    drag_coeff_arr = ["actual"]  # "actual" for drag force calculated using analytical CFD results
+    drag_coeff_arr = ["actual"]  # "actual" for drag force calculated using analytical CFD results, only validated for submerged tests
 
-delta_t = 2  # time step in milliseconds
+delta_t = 1  # time step in milliseconds, smaller is slower but better
 delta_t = delta_t / 1000  # convert time step to seconds
 decimals = (str(delta_t)[::-1].find('.'))
 
-max_time = 1  # max time for the simulation to run too, prevents stagnation issue
+max_time = 1  # max time for the simulation to run too, prevents stagnation issues
 
 # Firing Mode: Only one can be true #
-sequential_cutoff = False  # turn all on at once, turn each off in order, will likely break circuit IRL
-sequential_firing = True  # turn each coil on and off in order, currently in use
-manual_timings = False  # give manual timings for sequential firing of coils
+sequential_cutoff = False  # turn all on at once, turn each off in order, will likely break circuit IRL (DO NOT USE)
+sequential_firing = True  # turn each coil on and off in order, currently in use (USE THIS ONE)
+manual_timings = False  # give manual timings for sequential firing of coils, good for testing and validation
 
 if manual_timings:
-    timing_arr = [43, 40.5, 43, 11.5,
-                  6]  # in ms [coil_1_duration, coil_2_duration, coil_3_duration, coil_1_2_delay, coil_2_3_delay]
+    timing_arr = [43, 40.5, 43, 11.5, 6]  # in ms [coil_1_duration, coil_2_duration, coil_3_duration, coil_1_2_delay, coil_2_3_delay]
     timing_arr = [timing / 1000 for timing in timing_arr]  # convert ms to s
 else:
     timing_arr = [0, 0, 0, 0, 0]
@@ -94,7 +103,7 @@ else:
 
 proj_cross_sec = 2.505 * (0.0254 ** 2)  # cross sectional area of payload/sled in m^2
 payload_cross_sec = 1.31104 * (0.0254 ** 2)  # cross sectional area of payload in m^2
-payload_drag_coeff = 0.2708  # drag_coeff of payload only
+payload_drag_coeff = 0.2708  # drag_coeff of payload only, found to be 0.2708 using CFD
 
 if drag_coeff_arr == ["actual"] and not water:
     print("CFD Drag Coefficient Array Only Validated for Water")
@@ -102,7 +111,7 @@ if drag_coeff_arr == ["actual"] and not water:
 
 # Friction Parameters #
 
-mu = 0.01  # coefficient of dynamic friction, 0.5 for sliding PLA on steel, very low for rolling (0.4)
+mu = 0.01  # coefficient of dynamic friction, 0.5 for sliding PLA on steel, very low for rolling (0.01)
 mu_s = 1.0  # coefficient of static friction, 1.0 for sliding PLA on steel, N/A for rolling
 
 header = ["Model Type", "Test Type", "Voltage", "Turns", "Added Mass", "Drag Coefficient",
@@ -126,7 +135,7 @@ print("Number of testing combos:", num_combos)
 test_num = 0
 
 
-def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, added_mass, drag_coeff):
+def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist, added_mass, drag_coeff):  # main funner function
     print("Test:", test_num)
     if num_turns == "actual":  # 500, 500, 420
         coil_1_turns, coil_2_turns, coil_3_turns = 500, 500, 420
@@ -158,14 +167,14 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
 
     current_directory = os.getcwd()  # get current working directory for file creation
 
-    femm.openfemm()
+    femm.openfemm()  # opens and initializes FEMM
 
     # Model Information - could move outside #
-    if model_type == "condensed":
+    if model_type == "condensed":  # OLD was for testing
         model = "ThreeCoilModelAxi.fem"
-    elif model_type == "spaced":
+    elif model_type == "spaced":  # OLD was for testing
         model = "ThreeCoilModelAxi_Spaced.fem"
-    elif model_type == "actual":
+    elif model_type == "actual":  # used most of the time
         model = "ThreeCoilModelAxi_actual.fem"
     else:
         model = ""
@@ -196,7 +205,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     if not os.path.exists(final_directory):
         os.makedirs(final_directory)
 
-    # Projectile Parameters: ALL REFER TO THE SLUG EXCEPT FOR MASS WHERE IT IS A COMBINATION OF SLUG, SLED, AND BODY !!!CHANGE!!!
+    # Projectile Parameters: ALL REFER TO THE SLUG EXCEPT FOR MASS WHERE IT IS A COMBINATION OF SLUG, SLED, AND BODY
     # proj_r = 0.357  # radius of projectile in inches
     # proj_l = 1.3  # length of projectile in inches
     # proj_vol = np.pi * (proj_r ** 2) * proj_l  # volume of projectile in in^3
@@ -208,7 +217,6 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     print("Slug mass:", slug_mass)
     sled_mass = 50 / 1000
     body_mass = 90.0 / 1000 + added_mass / 1000
-    # water_mass = 643.5 / 1000  # calculated using 8 inches of water in the tube for expulsion
 
     if body_loaded:  # if the cylindrical body is in the sled or just dry launching the sled
         proj_mass = slug_mass + sled_mass + body_mass
@@ -216,8 +224,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     else:
         proj_mass = slug_mass + sled_mass
     if water:
-        # proj_mass += water_mass
-        proj_mass += 10 / 1000  # mass of water in projectile
+        proj_mass += 10 / 1000  # mass of water in internal baffles
 
     print("Effective Projectile Mass:", proj_mass, "kg")
 
@@ -228,8 +235,6 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     print("circumference:", coil_circumference)
     r_per_in = 6.385 / (1000 * 12)  # the resistance per inch of cable
     r_resistor = 1.8  # resistance of parallel discharge resistors
-    r_igbt = 0
-    r_resistor += r_igbt
     c = 30 / 1000  # capacitance of each capacitor (default is 30000uF, 30mF, or 0.03F)
 
     if model_type == "condensed":  # model where coils are pressed up against each other
@@ -266,7 +271,6 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     v = 0  # initial velocity in in/sec
 
     proj_curr_y = proj_center_start_y
-    # print("Current y:", proj_curr_y)
     time = []
     current_arr = []
     latest_time = 0
@@ -318,11 +322,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         coil_1 = Coil(1, 1.7345, -0.5, coil_1_turns, 2, True, 0, 0, coil_1_voltage)
         coil_2 = Coil(2, 1.7345, 5, coil_2_turns, 3, True, 0, -1, coil_2_voltage)
         coil_3 = Coil(3, 1.7345, 10.5, coil_3_turns, 4, True, 0, -1, coil_3_voltage)
-    # elif model_type == "actual":
-    #     coil_1 = Coil(1, 1.7345, 2.5, coil_1_turns, 2, True, 0, 0, coil_1_voltage)
-    #     coil_2 = Coil(2, 1.7345, 5, coil_2_turns, 3, True, 0, -1, coil_2_voltage)
-    #     coil_3 = Coil(3, 1.7345, 7.875, coil_3_turns, 4, True, 0, -1, coil_3_voltage)
-    elif model_type == "actual":
+    elif model_type == "actual":  # note, x_center, y_center,, etc. are based on physical rig and the 3D model, changing the rig configuration will necessitate changing the FEMM model and these values
         coil_1 = Coil(1, 1.7345, 2, coil_1_turns, 2, True, 0, 0, coil_1_voltage)
         coil_2 = Coil(2, 1.7345, 5, coil_2_turns, 3, True, 0, -1, coil_2_voltage)
         coil_3 = Coil(3, 1.7345, 8, coil_3_turns, 4, True, 0, -1, coil_3_voltage)
@@ -333,7 +333,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
 
     coils = [coil_1, coil_2, coil_3]
 
-    def coil_initialization():
+    def coil_initialization():  # turn on the coils and set their correct number of turns
         for coil in coils:
             femm.mi_selectlabel(coil.x_center, coil.y_center)
             femm.mi_setblockprop("18 AWG", 0, 0.2, "New Circuit", 0, coil.group, coil.turns)  # positive loop for right
@@ -392,7 +392,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
             femm.mi_clearselected()
         femm.mi_clearselected()
 
-    def sequential_cutoff_check():  # function to turn off coils in sequence, all start on
+    def sequential_cutoff_check():  # function to turn off coils in sequence, all start on, will probably destory circuit IRL but interesting thought experiment
         femm.mi_seteditmode('blocks')
         for coil in coils:
             if proj_curr_y >= coil.y_center and coil.on:
@@ -410,7 +410,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
                 coil.on = True
             femm.mi_clearselected()
 
-    def manual_timings_check(current_time):
+    def manual_timings_check(current_time):   # function for manual timing of coils, uses manual input array
         nonlocal time_since_coil_activation
         current_coil = 0
         if current_time < coil_1.shut_down_time:
@@ -486,11 +486,10 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         current_arr.append(current)
         # print("Voltage:", voltage, "Resistance:", r, "Current:", current)
         # print("Current:", current, "Amps")
-        femm.mi_modifycircprop("New Circuit", 1,
-                               current)  # propnum = 1 is the total current, change the current in FEMM
+        femm.mi_modifycircprop("New Circuit", 1, current)  # propnum = 1 is the total current, change the current in FEMM
 
         femm.mi_seteditmode('group')  # select groups of points/lines
-        if any_coils_on:
+        if any_coils_on:  # if any coils are on, run the FEMM simulation and get force on slug
             femm.mi_analyze()  # run the FEMM simulation
             femm.mi_loadsolution()  # gather the FEMM simulation data
 
@@ -504,7 +503,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         pos.append(proj_curr_y)  # add the current position to the position array
         if len(time) != 0:  # if not at the start of the simulation, determine the drag force
             time.append(latest_time)
-            if drag_coeff != "actual" or payload_is_released:
+            if drag_coeff != "actual" or payload_is_released or not water:
                 drag_force_y = 1 / 2 * drag_coeff * fluid_density * ((vel[-1] * 0.0254) ** 2) * proj_cross_sec
             else:
                 drag_force_y = 0.00328 * vel[-1] ** 2 - 0.00134 * vel[-1]
@@ -556,8 +555,12 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         # v += delta_v  #
         # print("Current Velocity:", v)
         femm.mo_clearblock()
+        femm.mo_hidedensityplot()
         femm.mi_selectgroup(1)
         femm.mi_movetranslate(0, v * delta_t + 0.5 * acc * delta_t * delta_t)  # move the object in FEMM
+        if display_density_plot:
+            femm.mo_showdensityplot(1,0, 0,1.5,'bmag')
+        femm.mo_clearblock()
 
     femm.mi_close()  # close postprocessor
     femm.closefemm()  # close entire FEMM window
@@ -567,6 +570,8 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
 
     coil_force = np.array(coil_force)  # convert to numpy array for efficient data processing
     pos = np.array(pos)
+
+    # Export block
 
     for coil in coils:  # get the pulse duration for each coil from its start and end time, report out
         pulse_duration = round(coil.shut_down_time - coil.power_on_time, decimals)
@@ -616,6 +621,8 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     f.close()
 
     anim_frames = min(len(time) - 1, 100)  # number of frames for the animations
+
+    # Plotting block
 
     def animate_force_plot():  # does what it says on the tin
         time_plt = []
@@ -901,7 +908,8 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
         animate_force_plot()
         animate_pos_plot()
         animate_vel_plot()
-        # animate_coil_plot()
+    if display_animated_coil_plot:
+        animate_coil_plot()
     output_arr_local = [model_type, test_type, volt, num_turns, added_mass, drag_coeff, starting_pos,
                         coil_2_threshold_dist, coil_3_threshold_dist, coil_1_pulse_duration, coil_2_pulse_duration,
                         coil_3_pulse_duration, coil_1_2_pulse_delay, coil_2_3_pulse_delay,
@@ -909,7 +917,7 @@ def main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_t
     output_arr_master.append(output_arr_local)
 
 
-# Main testing loops #
+# Main testing loops (nested)#
 for volt in voltage_arr:
     for num_turns in num_turns_arr:
         for starting_pos in starting_pos_arr:
@@ -921,9 +929,8 @@ for volt in voltage_arr:
                             main_function(volt, num_turns, starting_pos, coil_2_threshold_dist, coil_3_threshold_dist,
                                           added_mass, drag_coeff)
 
-# Add all of the data to the CSV, should improve later to do it incrementally in the case of crashing/data loss
-with open('batchrun.csv', 'a+', encoding='UTF8', newline='') as f:
+# Add all of the data to the CSV, should improve later to do this incrementally in the case of crashing/data loss
+with open(file_name, 'a+', encoding='UTF8', newline='') as f:
     writer = csv.writer(f)
-    # writer.writerow(header)
     writer.writerows(output_arr_master)
 print("Total Execution time:", str(time_module.time() - start_time))
